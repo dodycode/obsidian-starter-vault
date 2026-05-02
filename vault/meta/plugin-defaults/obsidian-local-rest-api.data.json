@@ -1,0 +1,6 @@
+{
+  "port": 27124,
+  "insecurePort": 27123,
+  "enableInsecureServer": false,
+  "_comment": "apiKey + crypto keys are per-user secrets. They are generated automatically on first plugin enable. Never commit the generated data.json — it contains your personal API key. This seed only defines port settings; the plugin will fill in apiKey/crypto on activation."
+}

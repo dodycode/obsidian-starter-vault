@@ -1,0 +1,14 @@
+{
+  "livePreview": true,
+  "readableLineLength": true,
+  "spellcheck": true,
+  "alwaysUpdateLinks": true,
+  "defaultViewMode": "source",
+  "useMarkdownLinks": false,
+  "newLinkFormat": "shortest",
+  "attachmentFolderPath": "Archive/Files",
+  "userIgnoreFilters": [
+    "Archive/"
+  ],
+  "promptDelete": true
+}

@@ -1,0 +1,45 @@
+# macOS / OS
+.DS_Store
+Thumbs.db
+
+# Obsidian — per-device UI state (always ignore)
+vault/.obsidian/workspace.json
+vault/.obsidian/workspace-mobile.json
+vault/.obsidian/workspaces.json
+vault/.obsidian/graph.json
+
+# Obsidian — per-user preferences (normally ignore)
+vault/.obsidian/hotkeys.json
+vault/.obsidian/appearance.json
+
+# Obsidian — daily-notes folder is per-user (People/<name>/Daily/)
+# Each user generates their own via vault/scripts/bootstrap.sh
+vault/.obsidian/daily-notes.json
+
+# Plugin bundles — users install plugins via Obsidian's UI on first open.
+# community-plugins.json (at vault/.obsidian/) holds the install manifest.
+vault/.obsidian/plugins/
+
+# Obsidian-Git plugin bookkeeping
+vault/.obsidian-git-data
+
+# Trash
+vault/.trash/
+vault/.obsidian/trash/
+
+# Local / private — never commit
+vault/Passwords.md
+vault/**/passwords.md
+vault/**/credentials*
+vault/**/secrets*
+*.env
+*.env.local
+
+# Personal overlay (written by vault/scripts/bootstrap.sh, never committed)
+vault/CLAUDE.local.md
+vault/.claude/settings.local.json
+vault/.claude/*.lock
+
+# App repos + worktrees that may live as siblings of vault/ inside this clone
+# (don't accidentally track another git repo as a submodule)
+# Use specific names if you want, or leave broad — git ignores nested .git anyway.
