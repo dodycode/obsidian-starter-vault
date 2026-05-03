@@ -2,7 +2,7 @@
 
 > **User-agnostic.** Paths use placeholders (`<vault>`, `<project-repo>`, `<your-name>`, `<active-work>`, `<daily-today>`) which `CLAUDE.local.md` resolves on your machine.
 
-This rule defines the **Spec-Driven Development (SDD)** flow Dev Control runs before handing off to a coding agent. It adapts the JavaScript Mastery Six-File Context Methodology to a GitHub-Issues + worktree setup. The seven file shapes (project-overview, architecture, code-standards, ai-workflow-rules, ui-context, bugfix-spec, progress-tracker) are described inline below — no external template folder needed.
+This rule defines the **Spec-Driven Development (SDD)** flow Dev Control runs before handing off to a coding agent. It adapts the [JavaScript Mastery Six-File Context Methodology](../../Templates/Six-File-Context-Methodology/README.md) to a GitHub-Issues + worktree setup. The seven file shapes (project-overview, architecture, code-standards, ai-workflow-rules, ui-context, bugfix-spec, progress-tracker) are described inline below; ready-to-copy scaffolds live at `Templates/Six-File-Context-Methodology/templates/context/`.
 
 `dev-control-workflows.md` is the orchestration layer (worktree creation, Active Work, GitHub Issue lifecycle). This file is the **content layer** — what to read, what to ask, which files to generate, how to fill them in.
 

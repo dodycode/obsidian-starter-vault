@@ -9,6 +9,7 @@ Starter scaffolds. Copy, don't edit the originals.
 - `adr.md` — architecture decision record
 - `runbook.md` — operational runbook
 - `feature-moc.md` — starter for a new feature domain MOC
+- `Six-File-Context-Methodology/` — canonical reference for the JSM Six-File Context System the SDD flow is built on. `README.md` is the methodology essay; `templates/` holds 6 ready-to-copy scaffolds (project-overview, architecture, ui-context, code-standards, ai-workflow-rules, progress-tracker). Read this when you want to understand WHY the SDD context files exist or need a starting scaffold.
 
 ## For agents
 

@@ -58,7 +58,7 @@ vault/
 │
 ├── Tickets/               ← per-issue folders (Tickets/<repo>-<num>/notes.md + context/ for SDD)
 │                            and draft-<slug>/ for in-flight work without a GitHub issue yet
-├── Templates/             ← daily, adr, runbook, feature-moc
+├── Templates/             ← daily, adr, runbook, feature-moc, Six-File-Context-Methodology
 ├── Archive/               ← superseded content (incl. archived Tickets/<repo>-<num>/ post-merge)
 │
 ├── scripts/               ← bootstrap.sh + lint-vault.sh
