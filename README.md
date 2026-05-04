@@ -45,6 +45,9 @@ The easiest way to set up your workspace is with the interactive setup script. I
 # Quick one-liner (no install needed — just curl and bash)
 curl -sL https://raw.githubusercontent.com/dodycode/obsidian-starter-vault/main/scripts/setup-workspace.sh | bash
 
+# For automation / non-interactive (CI/CD, scripts):
+# curl -sL https://raw.githubusercontent.com/dodycode/obsidian-starter-vault/main/scripts/setup-workspace.sh | PROJECT_PATH=/path/to/project WORKSPACE=/path/to/workspace PROJECT_NAME=my-project USER_NAME=YourName bash
+
 # Or clone first if you prefer:
 git clone https://github.com/dodycode/obsidian-starter-vault.git
 cd obsidian-starter-vault
