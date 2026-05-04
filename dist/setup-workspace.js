@@ -93,8 +93,10 @@ __export(setup_workspace_exports, {
   buildConfig: () => buildConfig,
   detectMode: () => detectMode,
   executeSetup: () => executeSetup,
+  findProjectFolder: () => findProjectFolder,
   getEnvOrArg: () => getEnvOrArg,
   isNonInteractive: () => isNonInteractive,
+  isProjectFolder: () => isProjectFolder,
   parseArgs: () => parseArgs,
   resolveProjectName: () => resolveProjectName,
   resolveUserName: () => resolveUserName,
@@ -997,6 +999,7 @@ ${c2}
 // scripts/setup-workspace.ts
 var import_child_process = require("child_process");
 var import_fs = require("fs");
+var import_os = require("os");
 var import_path = require("path");
 var import_meta = {};
 var VAULT_REPO = "https://github.com/dodycode/obsidian-starter-vault.git";
@@ -1006,6 +1009,44 @@ function isCancel(value) {
 function exitCancel() {
   me("Operation cancelled.");
   process.exit(0);
+}
+var SYSTEM_DIRS = ["/", "/tmp", (0, import_path.resolve)("/tmp"), (0, import_os.homedir)(), (0, import_path.resolve)((0, import_os.homedir)())];
+var PROJECT_INDICATORS = [
+  ".git",
+  "package.json",
+  "Cargo.toml",
+  "go.mod",
+  "pom.xml",
+  "pyproject.toml",
+  "composer.json",
+  "Gemfile"
+];
+function isSystemDir(dirPath) {
+  const resolved = (0, import_path.resolve)(dirPath);
+  return SYSTEM_DIRS.includes(resolved);
+}
+function isProjectFolder(dirPath, existsSyncFn = import_fs.existsSync) {
+  const resolved = (0, import_path.resolve)(dirPath);
+  if (isSystemDir(resolved)) {
+    return false;
+  }
+  return PROJECT_INDICATORS.some(
+    (indicator) => existsSyncFn(`${resolved}/${indicator}`)
+  );
+}
+function findProjectFolder(startPath, existsSyncFn = import_fs.existsSync) {
+  let current = (0, import_path.resolve)(startPath);
+  while (true) {
+    if (isProjectFolder(current, existsSyncFn)) {
+      return current;
+    }
+    const parent = (0, import_path.dirname)(current);
+    if (parent === current) {
+      break;
+    }
+    current = parent;
+  }
+  return null;
 }
 function parseArgs(argv) {
   const args = {};
@@ -1093,7 +1134,9 @@ function buildConfig(args, env, cwd) {
 }
 function executeSetup(config, deps) {
   const { mode, existingProjectPath, workspace, projectName, userName, isNonInteractive: isNonInteractive2 } = config;
-  const { execSync: exec2, mkdirSync: mkdir } = deps || { execSync: import_child_process.execSync, mkdirSync: import_fs.mkdirSync };
+  const exec2 = deps?.execSync ?? import_child_process.execSync;
+  const mkdir = deps?.mkdirSync ?? import_fs.mkdirSync;
+  const exists = deps?.existsSync ?? import_fs.existsSync;
   try {
     mkdir(workspace, { recursive: true });
     if (mode === "existing" && existingProjectPath) {
@@ -1101,12 +1144,16 @@ function executeSetup(config, deps) {
         stdio: "inherit"
       });
     }
-    exec2(`git clone "${VAULT_REPO}" "${workspace}/vault"`, {
+    const vaultPath = `${workspace}/${projectName}-vault`;
+    if (exists(vaultPath)) {
+      exec2(`rm -rf "${vaultPath}"`, { stdio: "inherit" });
+    }
+    exec2(`git clone "${VAULT_REPO}" "${vaultPath}"`, {
       stdio: "inherit"
     });
     const installHooks = isNonInteractive2 ? "N" : "";
     exec2(
-      `cd "${workspace}/vault/vault" && BOILERPLATE_USER="${userName}" PROJECT_NAME="${projectName}" INSTALL_HOOKS="${installHooks}" ./scripts/bootstrap.sh`,
+      `cd "${vaultPath}/vault" && BOILERPLATE_USER="${userName}" PROJECT_NAME="${projectName}" INSTALL_HOOKS="${installHooks}" ./scripts/bootstrap.sh`,
       { stdio: "inherit" }
     );
   } catch (error) {
@@ -1125,37 +1172,57 @@ async function main() {
   if (!config.isNonInteractive) {
     ge("Obsidian Starter Vault \u2014 Workspace Setup");
     if (!config.existingProjectPath) {
-      const selectedMode = await Ee({
-        message: "Do you have an existing project folder?",
-        options: [
-          {
-            value: "existing",
-            label: "Yes \u2014 I have an existing project folder",
-            hint: "Moves your project into a new workspace alongside the vault"
-          },
-          {
-            value: "new",
-            label: "No \u2014 I'm starting fresh",
-            hint: "Creates a workspace with the vault; you clone your app repo later"
-          }
-        ]
-      });
-      if (isCancel(selectedMode)) exitCancel();
-      if (selectedMode === "existing") {
-        const projectPath2 = await Re({
-          message: "Path to your existing project folder:",
-          placeholder: "/home/user/Projects/my-app",
-          validate: (value) => {
-            if (!value) return "Path is required";
-            if (!(0, import_fs.existsSync)(value)) return "Directory does not exist";
-            return;
-          }
+      const detectedPath = findProjectFolder(process.cwd());
+      let autoDetected = false;
+      if (detectedPath) {
+        const useDetected = await ue({
+          message: `Detected project folder: ${detectedPath}
+Use this folder?`,
+          active: "Yes",
+          inactive: "No"
         });
-        if (isCancel(projectPath2)) exitCancel();
-        config.existingProjectPath = (0, import_path.resolve)(projectPath2);
-        config.mode = "existing";
-        config.workspace = `${(0, import_path.dirname)(config.existingProjectPath)}/${(0, import_path.basename)(config.existingProjectPath)}-workspace`;
-        config.projectName = (0, import_path.basename)(config.existingProjectPath);
+        if (isCancel(useDetected)) exitCancel();
+        if (useDetected) {
+          config.existingProjectPath = detectedPath;
+          config.mode = "existing";
+          config.workspace = `${(0, import_path.dirname)(detectedPath)}/${(0, import_path.basename)(detectedPath)}-workspace`;
+          config.projectName = (0, import_path.basename)(detectedPath);
+          autoDetected = true;
+        }
+      }
+      if (!autoDetected) {
+        const selectedMode = await Ee({
+          message: "Do you have an existing project folder?",
+          options: [
+            {
+              value: "existing",
+              label: "Yes \u2014 I have an existing project folder",
+              hint: "Moves your project into a new workspace alongside the vault"
+            },
+            {
+              value: "new",
+              label: "No \u2014 I'm starting fresh",
+              hint: "Creates a workspace with the vault; you clone your app repo later"
+            }
+          ]
+        });
+        if (isCancel(selectedMode)) exitCancel();
+        if (selectedMode === "existing") {
+          const projectPath2 = await Re({
+            message: "Path to your existing project folder:",
+            placeholder: "/home/user/Projects/my-app",
+            validate: (value) => {
+              if (!value) return "Path is required";
+              if (!(0, import_fs.existsSync)(value)) return "Directory does not exist";
+              return;
+            }
+          });
+          if (isCancel(projectPath2)) exitCancel();
+          config.existingProjectPath = (0, import_path.resolve)(projectPath2);
+          config.mode = "existing";
+          config.workspace = `${(0, import_path.dirname)(config.existingProjectPath)}/${(0, import_path.basename)(config.existingProjectPath)}-workspace`;
+          config.projectName = (0, import_path.basename)(config.existingProjectPath);
+        }
       }
     }
     if (!args.workspace && !env.WORKSPACE) {
@@ -1201,10 +1268,10 @@ async function main() {
       R2.info(
         `  Project:   ${config.workspace}/${config.projectName} (moved from ${config.existingProjectPath})`
       );
-      R2.info(`  Vault:     ${config.workspace}/vault`);
+      R2.info(`  Vault:     ${config.workspace}/${config.projectName}-vault`);
     } else {
       R2.info(`  Workspace: ${config.workspace}`);
-      R2.info(`  Vault:     ${config.workspace}/vault`);
+      R2.info(`  Vault:     ${config.workspace}/${config.projectName}-vault`);
       R2.info(
         `  Project:   ${config.workspace}/${config.projectName} (clone your app repo here later)`
       );
@@ -1241,8 +1308,8 @@ async function main() {
   }
   if (!config.isNonInteractive) {
     ye("Next steps:");
-    console.log(`  1. Open the vault in Obsidian: ${config.workspace}/vault`);
-    console.log(`  2. Start a Claude session: cd ${config.workspace}/vault && claude`);
+    console.log(`  1. Open the vault in Obsidian: ${config.workspace}/${config.projectName}-vault`);
+    console.log(`  2. Start a Claude session: cd ${config.workspace}/${config.projectName}-vault && claude`);
     if (config.mode === "new") {
       console.log(
         `  3. Clone your app repo: cd ${config.workspace} && git clone <url> ${config.projectName}`
@@ -1264,8 +1331,10 @@ if (isMainModule || isMainESM) {
   buildConfig,
   detectMode,
   executeSetup,
+  findProjectFolder,
   getEnvOrArg,
   isNonInteractive,
+  isProjectFolder,
   parseArgs,
   resolveProjectName,
   resolveUserName,

@@ -41,16 +41,18 @@ Concrete example:
 
 The easiest way to set up your workspace is with the interactive setup script. It handles both **new projects** and **existing projects**.
 
-**Quick one-liner** (no install needed):
+**Quick start** (no install needed):
 
 ```bash
-curl -sL https://raw.githubusercontent.com/dodycode/obsidian-starter-vault/main/scripts/setup-workspace.sh | bash
+curl -sL -o setup-workspace.sh https://raw.githubusercontent.com/dodycode/obsidian-starter-vault/main/scripts/setup-workspace.sh
+bash setup-workspace.sh
 ```
 
 **Non-interactive** (for automation / CI/CD):
 
 ```bash
-curl -sL https://raw.githubusercontent.com/dodycode/obsidian-starter-vault/main/scripts/setup-workspace.sh | PROJECT_PATH=/path/to/project WORKSPACE=/path/to/workspace PROJECT_NAME=my-project USER_NAME=YourName bash
+curl -sL -o setup-workspace.sh https://raw.githubusercontent.com/dodycode/obsidian-starter-vault/main/scripts/setup-workspace.sh
+PROJECT_PATH=/path/to/project WORKSPACE=/path/to/workspace PROJECT_NAME=my-project USER_NAME=YourName bash setup-workspace.sh
 ```
 
 **Or clone first** if you prefer:
