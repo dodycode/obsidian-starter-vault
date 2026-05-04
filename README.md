@@ -42,8 +42,8 @@ Concrete example:
 The easiest way to set up your workspace is with the interactive setup script. It handles both **new projects** and **existing projects**.
 
 ```bash
-# Quick one-liner (downloads and runs the setup script)
-curl -sL https://raw.githubusercontent.com/dodycode/obsidian-starter-vault/main/scripts/setup-workspace-cli.ts | npx tsx
+# Quick one-liner (downloads bundled script and runs with node)
+curl -sL https://raw.githubusercontent.com/dodycode/obsidian-starter-vault/main/dist/setup-workspace.js | node
 
 # Or clone first if you prefer:
 git clone https://github.com/dodycode/obsidian-starter-vault.git

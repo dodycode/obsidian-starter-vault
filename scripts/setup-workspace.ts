@@ -374,7 +374,14 @@ export {
 };
 
 // Run CLI if executed directly
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Check if this file is the entry point (not imported as a module)
+const isMainModule =
+  typeof require !== "undefined" && require.main === module;
+const isMainESM =
+  typeof import.meta.url !== "undefined" &&
+  import.meta.url === `file://${process.argv[1]}`;
+
+if (isMainModule || isMainESM) {
   main().catch((err) => {
     console.error(err);
     process.exit(1);
