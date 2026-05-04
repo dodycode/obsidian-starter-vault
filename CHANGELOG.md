@@ -4,6 +4,24 @@ All notable changes to this template are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — 2026-05-04
+
+### Added
+
+- Interactive setup script (`scripts/setup-workspace.ts`) with `@clack/prompts`
+- Bundled distribution (`dist/setup-workspace.js`) via esbuild — self-contained, no dependencies
+- Bash wrapper (`scripts/setup-workspace.sh`) for `curl | bash` one-liner
+- Support for both existing projects (moves into workspace) and new projects
+- Non-interactive mode via environment variables (`PROJECT_PATH`, `WORKSPACE`, `PROJECT_NAME`, `USER_NAME`)
+- 53 unit tests with vitest in `__tests__/setup-workspace.test.ts`
+- `package.json` with `pnpm run build` (esbuild), `pnpm test` (vitest), `pnpm run setup` (tsx)
+
+### Changed
+
+- `vault/scripts/bootstrap.sh` — accepts `BOILERPLATE_USER`, `PROJECT_NAME`, and `INSTALL_HOOKS` env vars for headless operation
+- `README.md` quickstart — replaced manual clone steps with `curl | bash` one-liner
+- Removed manual setup section from README (setup script handles everything)
+
 ## [1.0.0] — 2026-05-03
 
 Initial public release.

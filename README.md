@@ -88,32 +88,6 @@ After:  ~/Projects/my-app-workspace/
 └── my-app/                  ← clone your app repo here later
 ```
 
-### Alternative: Manual setup
-
-If you prefer to set things up manually:
-
-```bash
-# 1. Clone the template into a project-named workspace folder
-mkdir -p ~/Projects/my-saas
-git clone https://github.com/dodycode/obsidian-starter-vault.git \
-  ~/Projects/my-saas/my-saas-workspace
-
-# (Or use the template feature:)
-# gh repo create <your-account>/my-saas-workspace \
-#   --template dodycode/obsidian-starter-vault --private
-# git clone https://github.com/<your-account>/my-saas-workspace.git \
-#   ~/Projects/my-saas/my-saas-workspace
-
-cd ~/Projects/my-saas/my-saas-workspace/vault
-
-# 2. Run bootstrap from inside vault/
-./scripts/bootstrap.sh
-
-# 3. Clone your app repo as a sibling of vault/
-cd ..
-git clone <app-repo-url> my-saas
-```
-
 ### Where to start Claude sessions
 
 | Session type | cwd | Auto-loads |
