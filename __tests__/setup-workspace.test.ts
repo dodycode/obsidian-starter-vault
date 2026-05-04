@@ -11,8 +11,80 @@ import {
   validateUserName,
   buildConfig,
   executeSetup,
+  isProjectFolder,
+  findProjectFolder,
   VAULT_REPO,
 } from "../scripts/setup-workspace";
+
+describe("isProjectFolder", () => {
+  it("should return true for folder with .git/", () => {
+    const exists = vi.fn((p: string) => p === "/project/.git");
+    expect(isProjectFolder("/project", exists)).toBe(true);
+  });
+
+  it("should return true for folder with package.json", () => {
+    const exists = vi.fn((p: string) => p === "/project/package.json");
+    expect(isProjectFolder("/project", exists)).toBe(true);
+  });
+
+  it("should return true for folder with Cargo.toml", () => {
+    const exists = vi.fn((p: string) => p === "/project/Cargo.toml");
+    expect(isProjectFolder("/project", exists)).toBe(true);
+  });
+
+  it("should return true for folder with go.mod", () => {
+    const exists = vi.fn((p: string) => p === "/project/go.mod");
+    expect(isProjectFolder("/project", exists)).toBe(true);
+  });
+
+  it("should return false for system directories", () => {
+    const exists = vi.fn(() => true);
+    expect(isProjectFolder("/", exists)).toBe(false);
+    expect(isProjectFolder("/tmp", exists)).toBe(false);
+  });
+
+  it("should return false for empty directories", () => {
+    const exists = vi.fn(() => false);
+    expect(isProjectFolder("/empty", exists)).toBe(false);
+  });
+
+  it("should return false for directories with unrelated files", () => {
+    const exists = vi.fn((p: string) => p === "/random/readme.txt");
+    expect(isProjectFolder("/random", exists)).toBe(false);
+  });
+});
+
+describe("findProjectFolder", () => {
+  it("should find project in current directory", () => {
+    const exists = vi.fn((p: string) => p === "/project/package.json");
+    expect(findProjectFolder("/project", exists)).toEqual("/project");
+  });
+
+  it("should find project in parent directory", () => {
+    const exists = vi.fn((p: string) => p === "/project/package.json");
+    expect(findProjectFolder("/project/src", exists)).toEqual("/project");
+  });
+
+  it("should find project in grandparent directory", () => {
+    const exists = vi.fn((p: string) => p === "/project/package.json");
+    expect(findProjectFolder("/project/src/components", exists)).toEqual("/project");
+  });
+
+  it("should return null when no project found", () => {
+    const exists = vi.fn(() => false);
+    expect(findProjectFolder("/random", exists)).toBeNull();
+  });
+
+  it("should return null when no indicators found anywhere up the tree", () => {
+    const exists = vi.fn((p: string) => p.endsWith(".git") && p.includes("other"));
+    expect(findProjectFolder("/random/path", exists)).toBeNull();
+  });
+
+  it("should stop at filesystem root", () => {
+    const exists = vi.fn(() => false);
+    expect(findProjectFolder("/a/b/c", exists)).toBeNull();
+  });
+});
 
 describe("parseArgs", () => {
   it("should parse --key value pairs", () => {
@@ -331,11 +403,7 @@ describe("executeSetup", () => {
 
     expect(deps.mkdirSync).toHaveBeenCalledWith("/workspace", { recursive: true });
     expect(deps.execSync).toHaveBeenCalledWith(
-      `git clone "${VAULT_REPO}" "/workspace/vault"`,
-      { stdio: "inherit" },
-    );
-    expect(deps.execSync).toHaveBeenCalledWith(
-      expect.stringContaining("BOILERPLATE_USER=\"test\""),
+      `git clone "${VAULT_REPO}" "/workspace/my-app-vault"`,
       { stdio: "inherit" },
     );
   });
@@ -362,7 +430,7 @@ describe("executeSetup", () => {
       { stdio: "inherit" },
     );
     expect(deps.execSync).toHaveBeenCalledWith(
-      `git clone "${VAULT_REPO}" "/workspace/vault"`,
+      `git clone "${VAULT_REPO}" "/workspace/project-vault"`,
       { stdio: "inherit" },
     );
   });
@@ -453,6 +521,29 @@ describe("executeSetup", () => {
     expect(calls[0]).toContain('mv "/old/project"');
     expect(calls[1]).toContain('git clone');
     expect(calls[2]).toContain('bootstrap.sh');
+  });
+
+  it("should remove existing vault before cloning", () => {
+    const deps = {
+      mkdirSync: vi.fn(),
+      execSync: vi.fn(),
+      existsSync: vi.fn((p: string) => p === "/workspace/my-app-vault"),
+    };
+
+    const config = {
+      mode: "new" as const,
+      workspace: "/workspace",
+      projectName: "my-app",
+      userName: "test",
+      isNonInteractive: true,
+    };
+
+    executeSetup(config, deps);
+
+    expect(deps.execSync).toHaveBeenCalledWith(
+      'rm -rf "/workspace/my-app-vault"',
+      { stdio: "inherit" },
+    );
   });
 });
 

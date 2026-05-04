@@ -2,6 +2,7 @@
 import * as clack from "@clack/prompts";
 import { execSync } from "child_process";
 import { existsSync, mkdirSync } from "fs";
+import { homedir } from "os";
 import { basename, dirname, resolve } from "path";
 
 const VAULT_REPO = "https://github.com/dodycode/obsidian-starter-vault.git";
@@ -13,6 +14,62 @@ function isCancel<T>(value: T | symbol): value is symbol {
 function exitCancel() {
   clack.cancel("Operation cancelled.");
   process.exit(0);
+}
+
+// ── Project detection ───────────────────────────────────────────────────
+
+const SYSTEM_DIRS = ["/", "/tmp", resolve("/tmp"), homedir(), resolve(homedir())];
+
+const PROJECT_INDICATORS = [
+  ".git",
+  "package.json",
+  "Cargo.toml",
+  "go.mod",
+  "pom.xml",
+  "pyproject.toml",
+  "composer.json",
+  "Gemfile",
+];
+
+function isSystemDir(dirPath: string): boolean {
+  const resolved = resolve(dirPath);
+  return SYSTEM_DIRS.includes(resolved);
+}
+
+function isProjectFolder(
+  dirPath: string,
+  existsSyncFn: typeof existsSync = existsSync,
+): boolean {
+  const resolved = resolve(dirPath);
+
+  if (isSystemDir(resolved)) {
+    return false;
+  }
+
+  return PROJECT_INDICATORS.some((indicator) =>
+    existsSyncFn(`${resolved}/${indicator}`),
+  );
+}
+
+function findProjectFolder(
+  startPath: string,
+  existsSyncFn: typeof existsSync = existsSync,
+): string | null {
+  let current = resolve(startPath);
+
+  while (true) {
+    if (isProjectFolder(current, existsSyncFn)) {
+      return current;
+    }
+
+    const parent = dirname(current);
+    if (parent === current) {
+      break;
+    }
+    current = parent;
+  }
+
+  return null;
 }
 
 // ── Pure functions (testable core) ──────────────────────────────────────
@@ -150,16 +207,19 @@ function buildConfig(
 export interface SetupDeps {
   execSync: (command: string, options?: { stdio?: string }) => void;
   mkdirSync: (path: string, options?: { recursive?: boolean }) => void;
+  existsSync?: (path: string) => boolean;
 }
 
 function executeSetup(config: ReturnType<typeof buildConfig>, deps?: SetupDeps): void {
   const { mode, existingProjectPath, workspace, projectName, userName, isNonInteractive } =
     config;
 
-  const { execSync: exec, mkdirSync: mkdir } = deps || { execSync, mkdirSync };
+  const exec = deps?.execSync ?? execSync;
+  const mkdir = deps?.mkdirSync ?? mkdirSync;
+  const exists = deps?.existsSync ?? existsSync;
 
   try {
-    // Create workspace directory
+    // Create workspace directory (reuse if exists)
     mkdir(workspace, { recursive: true });
 
     if (mode === "existing" && existingProjectPath) {
@@ -168,15 +228,22 @@ function executeSetup(config: ReturnType<typeof buildConfig>, deps?: SetupDeps):
       });
     }
 
+    const vaultPath = `${workspace}/${projectName}-vault`;
+
+    // Remove existing vault if it exists (overwrite behavior)
+    if (exists(vaultPath)) {
+      exec(`rm -rf "${vaultPath}"`, { stdio: "inherit" });
+    }
+
     // Clone vault
-    exec(`git clone "${VAULT_REPO}" "${workspace}/vault"`, {
+    exec(`git clone "${VAULT_REPO}" "${vaultPath}"`, {
       stdio: "inherit",
     });
 
     // Run bootstrap (vault is nested inside the cloned repo)
     const installHooks = isNonInteractive ? "N" : "";
     exec(
-      `cd "${workspace}/vault/vault" && BOILERPLATE_USER="${userName}" PROJECT_NAME="${projectName}" INSTALL_HOOKS="${installHooks}" ./scripts/bootstrap.sh`,
+      `cd "${vaultPath}/vault" && BOILERPLATE_USER="${userName}" PROJECT_NAME="${projectName}" INSTALL_HOOKS="${installHooks}" ./scripts/bootstrap.sh`,
       { stdio: "inherit" },
     );
   } catch (error) {
@@ -204,42 +271,67 @@ async function main() {
 
     // Interactive prompts for missing values
     if (!config.existingProjectPath) {
-      const selectedMode = await clack.select({
-        message: "Do you have an existing project folder?",
-        options: [
-          {
-            value: "existing",
-            label: "Yes — I have an existing project folder",
-            hint: "Moves your project into a new workspace alongside the vault",
-          },
-          {
-            value: "new",
-            label: "No — I'm starting fresh",
-            hint: "Creates a workspace with the vault; you clone your app repo later",
-          },
-        ],
-      });
+      // Auto-detect project folder
+      const detectedPath = findProjectFolder(process.cwd());
+      let autoDetected = false;
 
-      if (isCancel(selectedMode)) exitCancel();
-
-      if (selectedMode === "existing") {
-        const projectPath = await clack.text({
-          message: "Path to your existing project folder:",
-          placeholder: "/home/user/Projects/my-app",
-          validate: (value) => {
-            if (!value) return "Path is required";
-            if (!existsSync(value)) return "Directory does not exist";
-            return;
-          },
+      if (detectedPath) {
+        const useDetected = await clack.confirm({
+          message: `Detected project folder: ${detectedPath}\nUse this folder?`,
+          active: "Yes",
+          inactive: "No",
         });
 
-        if (isCancel(projectPath)) exitCancel();
-        config.existingProjectPath = resolve(projectPath);
-        config.mode = "existing";
+        if (isCancel(useDetected)) exitCancel();
 
-        // Re-resolve workspace with the new project path
-        config.workspace = `${dirname(config.existingProjectPath)}/${basename(config.existingProjectPath)}-workspace`;
-        config.projectName = basename(config.existingProjectPath);
+        if (useDetected) {
+          config.existingProjectPath = detectedPath;
+          config.mode = "existing";
+          config.workspace = `${dirname(detectedPath)}/${basename(detectedPath)}-workspace`;
+          config.projectName = basename(detectedPath);
+          autoDetected = true;
+        }
+      }
+
+      // Fall back to manual selection if not auto-detected
+      if (!autoDetected) {
+        const selectedMode = await clack.select({
+          message: "Do you have an existing project folder?",
+          options: [
+            {
+              value: "existing",
+              label: "Yes — I have an existing project folder",
+              hint: "Moves your project into a new workspace alongside the vault",
+            },
+            {
+              value: "new",
+              label: "No — I'm starting fresh",
+              hint: "Creates a workspace with the vault; you clone your app repo later",
+            },
+          ],
+        });
+
+        if (isCancel(selectedMode)) exitCancel();
+
+        if (selectedMode === "existing") {
+          const projectPath = await clack.text({
+            message: "Path to your existing project folder:",
+            placeholder: "/home/user/Projects/my-app",
+            validate: (value) => {
+              if (!value) return "Path is required";
+              if (!existsSync(value)) return "Directory does not exist";
+              return;
+            },
+          });
+
+          if (isCancel(projectPath)) exitCancel();
+          config.existingProjectPath = resolve(projectPath);
+          config.mode = "existing";
+
+          // Re-resolve workspace with the new project path
+          config.workspace = `${dirname(config.existingProjectPath)}/${basename(config.existingProjectPath)}-workspace`;
+          config.projectName = basename(config.existingProjectPath);
+        }
       }
     }
 
@@ -298,10 +390,10 @@ async function main() {
       clack.log.info(
         `  Project:   ${config.workspace}/${config.projectName} (moved from ${config.existingProjectPath})`,
       );
-      clack.log.info(`  Vault:     ${config.workspace}/vault`);
+      clack.log.info(`  Vault:     ${config.workspace}/${config.projectName}-vault`);
     } else {
       clack.log.info(`  Workspace: ${config.workspace}`);
-      clack.log.info(`  Vault:     ${config.workspace}/vault`);
+      clack.log.info(`  Vault:     ${config.workspace}/${config.projectName}-vault`);
       clack.log.info(
         `  Project:   ${config.workspace}/${config.projectName} (clone your app repo here later)`,
       );
@@ -346,8 +438,8 @@ async function main() {
   // Outro
   if (!config.isNonInteractive) {
     clack.outro("Next steps:");
-    console.log(`  1. Open the vault in Obsidian: ${config.workspace}/vault`);
-    console.log(`  2. Start a Claude session: cd ${config.workspace}/vault && claude`);
+    console.log(`  1. Open the vault in Obsidian: ${config.workspace}/${config.projectName}-vault`);
+    console.log(`  2. Start a Claude session: cd ${config.workspace}/${config.projectName}-vault && claude`);
     if (config.mode === "new") {
       console.log(
         `  3. Clone your app repo: cd ${config.workspace} && git clone <url> ${config.projectName}`,
@@ -369,6 +461,8 @@ export {
   validateUserName,
   buildConfig,
   executeSetup,
+  isProjectFolder,
+  findProjectFolder,
   VAULT_REPO,
   type SetupDeps,
 };
