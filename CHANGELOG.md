@@ -4,6 +4,23 @@ All notable changes to this template are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] — 2026-05-04
+
+### Added
+
+- Auto-detect project folder (`findProjectFolder()`) — walks up directory tree from cwd looking for `.git/`, `package.json`, `Cargo.toml`, `go.mod`, `pom.xml`, `pyproject.toml`, `composer.json`, or `Gemfile`
+- Interactive prompt on detection: `Detected project folder: <path>\nUse this folder? [Y/n]`
+- One confirmation triggers full workspace creation: create workspace → move project → clone vault → bootstrap
+- System directory guard (`isSystemDir`) — prevents false positives on `~`, `/tmp`, `/`
+- Vault clones as `<project>-vault/` instead of generic `vault/` (multiple projects can share a parent without collision)
+- Existing vault overwrite — deletes and reclones if `<project>-vault/` already exists
+- Existing workspace reuse — does not fail if `<project>-workspace/` already exists
+
+### Changed
+
+- `scripts/setup-workspace.ts` — added `isProjectFolder()`, `findProjectFolder()`, updated `executeSetup()` vault naming, updated interactive flow with auto-detect
+- `__tests__/setup-workspace.test.ts` — added 12 tests for project detection logic, updated existing tests for new vault naming
+
 ## [1.1.0] — 2026-05-04
 
 ### Added
