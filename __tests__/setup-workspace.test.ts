@@ -13,7 +13,7 @@ import {
   executeSetup,
   isProjectFolder,
   findProjectFolder,
-  VAULT_REPO,
+  VAULT_ZIP_URL,
 } from "../scripts/setup-workspace";
 
 describe("isProjectFolder", () => {
@@ -385,7 +385,7 @@ describe("buildConfig", () => {
 });
 
 describe("executeSetup", () => {
-  it("should create workspace and clone vault for new project", () => {
+  it("should create workspace and download vault for new project", () => {
     const deps = {
       mkdirSync: vi.fn(),
       execSync: vi.fn(),
@@ -403,12 +403,12 @@ describe("executeSetup", () => {
 
     expect(deps.mkdirSync).toHaveBeenCalledWith("/workspace", { recursive: true });
     expect(deps.execSync).toHaveBeenCalledWith(
-      `git clone "${VAULT_REPO}" "/workspace/my-app-vault"`,
+      expect.stringContaining("curl"),
       { stdio: "inherit" },
     );
   });
 
-  it("should move existing project before cloning", () => {
+  it("should move existing project before downloading vault", () => {
     const deps = {
       mkdirSync: vi.fn(),
       execSync: vi.fn(),
@@ -430,12 +430,12 @@ describe("executeSetup", () => {
       { stdio: "inherit" },
     );
     expect(deps.execSync).toHaveBeenCalledWith(
-      `git clone "${VAULT_REPO}" "/workspace/project-vault"`,
+      expect.stringContaining("curl"),
       { stdio: "inherit" },
     );
   });
 
-  it("should set INSTALL_HOOKS=N for non-interactive mode", () => {
+  it("should set INSTALL_HOOKS=Y for non-interactive mode", () => {
     const deps = {
       mkdirSync: vi.fn(),
       execSync: vi.fn(),
@@ -454,10 +454,10 @@ describe("executeSetup", () => {
     const bootstrapCall = deps.execSync.mock.calls.find((call: string[]) =>
       call[0].includes("INSTALL_HOOKS="),
     );
-    expect(bootstrapCall![0]).toContain('INSTALL_HOOKS="N"');
+    expect(bootstrapCall![0]).toContain('INSTALL_HOOKS="Y"');
   });
 
-  it("should set INSTALL_HOOKS=empty for interactive mode", () => {
+  it("should set INSTALL_HOOKS=Y for interactive mode", () => {
     const deps = {
       mkdirSync: vi.fn(),
       execSync: vi.fn(),
@@ -476,14 +476,14 @@ describe("executeSetup", () => {
     const bootstrapCall = deps.execSync.mock.calls.find((call: string[]) =>
       call[0].includes("INSTALL_HOOKS="),
     );
-    expect(bootstrapCall![0]).toContain('INSTALL_HOOKS=""');
+    expect(bootstrapCall![0]).toContain('INSTALL_HOOKS="Y"');
   });
 
   it("should throw on execution error", () => {
     const deps = {
       mkdirSync: vi.fn(),
       execSync: vi.fn(() => {
-        throw new Error("git clone failed");
+        throw new Error("curl download failed");
       }),
     };
 
@@ -517,17 +517,20 @@ describe("executeSetup", () => {
 
     const calls = deps.execSync.mock.calls.map((call: string[]) => call[0]);
 
-    // Verify order: mv → git clone → bootstrap
+    // Verify order: mv → curl → unzip → mv vault → cleanup → bootstrap
     expect(calls[0]).toContain('mv "/old/project"');
-    expect(calls[1]).toContain('git clone');
-    expect(calls[2]).toContain('bootstrap.sh');
+    expect(calls[1]).toContain('curl');
+    expect(calls[2]).toContain('unzip');
+    expect(calls[3]).toContain('mv');
+    expect(calls[4]).toContain('rm -rf');
+    expect(calls[5]).toContain('bootstrap.sh');
   });
 
-  it("should remove existing vault before cloning", () => {
+  it("should remove existing vault before downloading", () => {
     const deps = {
       mkdirSync: vi.fn(),
       execSync: vi.fn(),
-      existsSync: vi.fn((p: string) => p === "/workspace/my-app-vault"),
+      existsSync: vi.fn((p: string) => p === "/workspace/vault"),
     };
 
     const config = {
@@ -541,7 +544,7 @@ describe("executeSetup", () => {
     executeSetup(config, deps);
 
     expect(deps.execSync).toHaveBeenCalledWith(
-      'rm -rf "/workspace/my-app-vault"',
+      'rm -rf "/workspace/vault"',
       { stdio: "inherit" },
     );
   });

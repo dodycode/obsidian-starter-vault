@@ -5,7 +5,8 @@ import { existsSync, mkdirSync } from "fs";
 import { homedir } from "os";
 import { basename, dirname, resolve } from "path";
 
-const VAULT_REPO = "https://github.com/dodycode/obsidian-starter-vault.git";
+const VAULT_ZIP_URL =
+  "https://github.com/dodycode/obsidian-starter-vault/archive/refs/heads/main.zip";
 
 function isCancel<T>(value: T | symbol): value is symbol {
   return clack.isCancel(value);
@@ -228,22 +229,29 @@ function executeSetup(config: ReturnType<typeof buildConfig>, deps?: SetupDeps):
       });
     }
 
-    const vaultPath = `${workspace}/${projectName}-vault`;
+    const vaultPath = `${workspace}/vault`;
 
     // Remove existing vault if it exists (overwrite behavior)
     if (exists(vaultPath)) {
       exec(`rm -rf "${vaultPath}"`, { stdio: "inherit" });
     }
 
-    // Clone vault
-    exec(`git clone "${VAULT_REPO}" "${vaultPath}"`, {
-      stdio: "inherit",
-    });
+    // Download vault folder via curl + unzip (no .git, no repo root wrapper)
+    const tmpZip = `${workspace}/.vault-tmp.zip`;
+    const tmpDir = `${workspace}/.vault-tmp`;
 
-    // Run bootstrap (vault is nested inside the cloned repo)
+    exec(`curl -sL "${VAULT_ZIP_URL}" -o "${tmpZip}"`, { stdio: "inherit" });
+    exec(`unzip -q "${tmpZip}" -d "${tmpDir}"`, { stdio: "inherit" });
+    exec(
+      `mv "${tmpDir}/obsidian-starter-vault-main/vault" "${vaultPath}"`,
+      { stdio: "inherit" },
+    );
+    exec(`rm -rf "${tmpZip}" "${tmpDir}"`, { stdio: "inherit" });
+
+    // Run bootstrap
     const installHooks = "Y";
     exec(
-      `cd "${vaultPath}/vault" && BOILERPLATE_USER="${userName}" PROJECT_NAME="${projectName}" INSTALL_HOOKS="${installHooks}" ./scripts/bootstrap.sh`,
+      `cd "${vaultPath}" && BOILERPLATE_USER="${userName}" PROJECT_NAME="${projectName}" INSTALL_HOOKS="${installHooks}" ./scripts/bootstrap.sh`,
       { stdio: "inherit" },
     );
   } catch (error) {
@@ -390,10 +398,10 @@ async function main() {
       clack.log.info(
         `  Project:   ${config.workspace}/${config.projectName} (moved from ${config.existingProjectPath})`,
       );
-      clack.log.info(`  Vault:     ${config.workspace}/${config.projectName}-vault`);
+      clack.log.info(`  Vault:     ${config.workspace}/vault`);
     } else {
       clack.log.info(`  Workspace: ${config.workspace}`);
-      clack.log.info(`  Vault:     ${config.workspace}/${config.projectName}-vault`);
+      clack.log.info(`  Vault:     ${config.workspace}/vault`);
       clack.log.info(
         `  Project:   ${config.workspace}/${config.projectName} (clone your app repo here later)`,
       );
@@ -438,8 +446,8 @@ async function main() {
   // Outro
   if (!config.isNonInteractive) {
     clack.outro("Next steps:");
-    console.log(`  1. Open the vault in Obsidian: ${config.workspace}/${config.projectName}-vault`);
-    console.log(`  2. Start a Claude session: cd ${config.workspace}/${config.projectName}-vault && claude`);
+    console.log(`  1. Open the vault in Obsidian: ${config.workspace}/vault`);
+    console.log(`  2. Start a Claude session: cd ${config.workspace}/vault && claude`);
     if (config.mode === "new") {
       console.log(
         `  3. Clone your app repo: cd ${config.workspace} && git clone <url> ${config.projectName}`,

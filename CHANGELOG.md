@@ -4,6 +4,20 @@ All notable changes to this template are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] — 2026-05-04
+
+### Changed
+
+- **Setup script now downloads only the `vault/` folder** — replaced `git clone` with `curl` + `unzip` via GitHub zipball. No more cloning the entire repo with `.git/`, `README.md`, `LICENSE`, etc.
+- **Vault path simplified** — vault now lands at `<workspace>/vault/` instead of `<workspace>/<project>-vault/vault/`. One less nesting level.
+- **Removed "Pulling template updates" section from README** — since the workspace no longer contains a cloned git repo, there's nothing to pull updates into.
+- **Removed "Or clone first" quick-start option** — the curl one-liner is the only supported path now.
+- **Updated all README diagrams** — trees and examples now show `vault/` directly inside the workspace, without the `<project>-vault/` wrapper.
+
+### Fixed
+
+- Tests updated to match new vault download path (`curl` instead of `git clone` / `svn export`).
+
 ## [1.2.0] — 2026-05-04
 
 ### Added

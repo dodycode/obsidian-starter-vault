@@ -14,12 +14,11 @@ A starter Obsidian vault wired up for AI coding agents. Drop it next to any new 
 
 ## Recommended project layout
 
-The cloned repo wraps your vault, your app repo, and your worktrees as siblings:
+Your workspace holds the vault, your app repo, and your worktrees as siblings:
 
 ```
 ~/Projects/<project>/
-└── <project>-workspace/        ← cloned template (rename freely)
-    ├── README.md, LICENSE, CHANGELOG.md
+└── <project>-workspace/        ← workspace folder
     ├── vault/                  ← Obsidian opens this; Claude Code Dev Control sessions cd here
     ├── <project>/              ← your app repo, sibling of vault/
     └── <project>-<branch>/     ← worktrees, siblings of vault/
@@ -30,7 +29,6 @@ Concrete example:
 ```
 ~/Projects/my-saas/
 └── my-saas-workspace/
-    ├── README.md, LICENSE, CHANGELOG.md
     ├── vault/
     ├── my-saas/
     ├── my-saas-feat-auth/
@@ -55,15 +53,6 @@ curl -sL -o setup-workspace.sh https://raw.githubusercontent.com/dodycode/obsidi
 PROJECT_PATH=/path/to/project WORKSPACE=/path/to/workspace PROJECT_NAME=my-project USER_NAME=YourName bash setup-workspace.sh
 ```
 
-**Or clone first** if you prefer:
-
-```bash
-git clone https://github.com/dodycode/obsidian-starter-vault.git
-cd obsidian-starter-vault
-pnpm install
-pnpm run setup
-```
-
 The script will guide you through:
 1. Whether you have an existing project folder or are starting fresh
 2. Workspace location
@@ -79,14 +68,14 @@ Before: ~/Projects/my-app/
         └── my-app/          ← your existing project
 
 After:  ~/Projects/my-app-workspace/
-        ├── vault/           ← cloned from GitHub
+        ├── vault/           ← exported from GitHub
         └── my-app/          ← moved from original location
 ```
 
 **New project** (starting from scratch):
 ```
 ~/Projects/my-app-workspace/
-├── vault/                   ← cloned from GitHub
+├── vault/                   ← exported from GitHub
 └── my-app/                  ← clone your app repo here later
 ```
 
@@ -96,7 +85,7 @@ After:  ~/Projects/my-app-workspace/
 |---|---|---|
 | Dev Control / vault work | `<workspace>/vault/` | `vault/CLAUDE.md` + `vault/.claude/skills/` + `vault/.claude/rules/` |
 | Coding session | `<workspace>/<app-repo>` or `<workspace>/<app-repo>-<branch>` | App repo's own `CLAUDE.md` (if any), plus the `/qa-fix` skill copied into each worktree |
-| Workspace root | `<workspace>/` | Only your global `~/.claude/CLAUDE.md` — used for git ops on the template repo, not for actual work |
+| Workspace root | `<workspace>/` | Only your global `~/.claude/CLAUDE.md` — not for actual work |
 
 ### Path bindings (filled by bootstrap)
 
@@ -106,7 +95,7 @@ After:  ~/Projects/my-app-workspace/
 |---|---|
 | `<your-name>` | Your short name (you pick at bootstrap, default `dody`) |
 | `<vault>` | `<workspace>/vault` |
-| `<workspace>` | The cloned repo root (parent of `vault/`) |
+| `<workspace>` | The workspace folder (parent of `vault/`) |
 | `<project-repo>` | `<workspace>/<project-name>` |
 | `<project-name>` | Your app repo folder name (used in worktree pattern `<project-name>-<branch>`) |
 | `<worktree-parent>` | `<workspace>` (worktrees land as siblings of `vault/`) |
@@ -119,11 +108,7 @@ These are referenced by the auto-loading rules under `vault/.claude/rules/dev-co
 ## Vault structure
 
 ```
-<workspace>/                     (= cloned template repo)
-├── README.md                     (you are reading this)
-├── LICENSE
-├── CHANGELOG.md
-├── .gitignore
+<workspace>/                     (= workspace folder)
 └── vault/                        (Obsidian opens this; Dev Control sessions cd here)
     ├── .obsidian/                (Obsidian app config + per-machine workspace state)
     ├── .claude/
@@ -173,19 +158,6 @@ These are referenced by the auto-loading rules under `vault/.claude/rules/dev-co
 6. Provision worktree (via `/new-worktree`)
 
 Run by Dev Control before any new piece of work — turns vague ideas into structured tickets + context-rich worktrees the implementing agent can read cold.
-
-## Pulling template updates
-
-The template is local-only on your machine — your `vault/` is your own. To pull future template improvements:
-
-```bash
-cd ~/Projects/my-saas/my-saas-workspace
-git remote add upstream https://github.com/dodycode/obsidian-starter-vault.git  # one-time
-git fetch upstream
-git merge upstream/main
-```
-
-Your `vault/CLAUDE.local.md` (personal paths) is gitignored, so upstream merges never touch it. Check `CHANGELOG.md` to see what changed before merging.
 
 ## Prerequisites
 
