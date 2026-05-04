@@ -1151,7 +1151,7 @@ function executeSetup(config, deps) {
     exec2(`git clone "${VAULT_REPO}" "${vaultPath}"`, {
       stdio: "inherit"
     });
-    const installHooks = isNonInteractive2 ? "N" : "";
+    const installHooks = "Y";
     exec2(
       `cd "${vaultPath}/vault" && BOILERPLATE_USER="${userName}" PROJECT_NAME="${projectName}" INSTALL_HOOKS="${installHooks}" ./scripts/bootstrap.sh`,
       { stdio: "inherit" }

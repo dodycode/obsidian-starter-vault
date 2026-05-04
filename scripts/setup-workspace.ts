@@ -241,7 +241,7 @@ function executeSetup(config: ReturnType<typeof buildConfig>, deps?: SetupDeps):
     });
 
     // Run bootstrap (vault is nested inside the cloned repo)
-    const installHooks = isNonInteractive ? "N" : "";
+    const installHooks = "Y";
     exec(
       `cd "${vaultPath}/vault" && BOILERPLATE_USER="${userName}" PROJECT_NAME="${projectName}" INSTALL_HOOKS="${installHooks}" ./scripts/bootstrap.sh`,
       { stdio: "inherit" },
