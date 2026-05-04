@@ -2,6 +2,11 @@
 .DS_Store
 Thumbs.db
 
+# Node.js
+node_modules/
+package-lock.json
+pnpm-lock.yaml
+
 # Obsidian — per-device UI state (always ignore)
 vault/.obsidian/workspace.json
 vault/.obsidian/workspace-mobile.json

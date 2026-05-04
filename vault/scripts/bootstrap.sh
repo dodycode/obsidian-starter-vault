@@ -24,13 +24,15 @@ echo "Workspace : $WORKSPACE_ROOT"
 echo
 
 # -- 1. Ask who this machine belongs to ------------------------------------
-DEFAULT_NAME="dody"
+# Support headless mode via env vars (used by setup-workspace.ts).
 if [ -n "${BOILERPLATE_USER:-}" ]; then
-  DEFAULT_NAME="$BOILERPLATE_USER"
+  NAME="$BOILERPLATE_USER"
+  echo "Using BOILERPLATE_USER from environment: $NAME"
+else
+  DEFAULT_NAME="dody"
+  read -r -p "Your short name [default: $DEFAULT_NAME]: " NAME
+  NAME="${NAME:-$DEFAULT_NAME}"
 fi
-
-read -r -p "Your short name [default: $DEFAULT_NAME]: " NAME
-NAME="${NAME:-$DEFAULT_NAME}"
 
 if [ -z "$NAME" ]; then
   echo "No name entered — aborting."
@@ -46,18 +48,23 @@ fi
 USER_DIR="$VAULT_ROOT/People/$NAME"
 
 # -- 2. Ask for the project name -------------------------------------------
-# Default: workspace folder basename, minus a trailing "-workspace" / "-vault" suffix if present.
-WORKSPACE_NAME="$(basename "$WORKSPACE_ROOT")"
-DEFAULT_PROJECT="${WORKSPACE_NAME%-workspace}"
-DEFAULT_PROJECT="${DEFAULT_PROJECT%-vault}"
-# If the strip didn't change anything and the workspace looks like the template name itself,
-# fall back to a generic placeholder so we don't suggest "obsidian-starter-vault".
-if [ "$DEFAULT_PROJECT" = "obsidian-starter-vault" ] || [ "$DEFAULT_PROJECT" = "$WORKSPACE_NAME" ]; then
-  DEFAULT_PROJECT="my-app"
-fi
+# Support headless mode via env vars (used by setup-workspace.ts).
+if [ -n "${PROJECT_NAME:-}" ]; then
+  echo "Using PROJECT_NAME from environment: $PROJECT_NAME"
+else
+  # Default: workspace folder basename, minus a trailing "-workspace" / "-vault" suffix if present.
+  WORKSPACE_NAME="$(basename "$WORKSPACE_ROOT")"
+  DEFAULT_PROJECT="${WORKSPACE_NAME%-workspace}"
+  DEFAULT_PROJECT="${DEFAULT_PROJECT%-vault}"
+  # If the strip didn't change anything and the workspace looks like the template name itself,
+  # fall back to a generic placeholder so we don't suggest "obsidian-starter-vault".
+  if [ "$DEFAULT_PROJECT" = "obsidian-starter-vault" ] || [ "$DEFAULT_PROJECT" = "$WORKSPACE_NAME" ]; then
+    DEFAULT_PROJECT="my-app"
+  fi
 
-read -r -p "Project name (your app repo folder name) [default: $DEFAULT_PROJECT]: " PROJECT_NAME
-PROJECT_NAME="${PROJECT_NAME:-$DEFAULT_PROJECT}"
+  read -r -p "Project name (your app repo folder name) [default: $DEFAULT_PROJECT]: " PROJECT_NAME
+  PROJECT_NAME="${PROJECT_NAME:-$DEFAULT_PROJECT}"
+fi
 
 if ! [[ "$PROJECT_NAME" =~ ^[a-zA-Z0-9_-]+$ ]]; then
   echo "Project name must contain only letters, digits, hyphen, or underscore."
@@ -263,8 +270,13 @@ if [ -d "$HOOKS_DIR" ] && [ -f "$HOOKS_DIR/guard-conventional-commits.sh" ]; the
   echo "  - guard-pr-description.sh       — strip AI attribution from PR bodies"
   echo "  - strip-coauthored-by.sh        — strip Co-Authored-By from commits (post-commit safety net)"
   echo
-  read -r -p "Install them into .claude/settings.local.json? [Y/n]: " INSTALL_HOOKS
-  INSTALL_HOOKS="${INSTALL_HOOKS:-Y}"
+  # Support headless mode: if INSTALL_HOOKS env var is set, skip the prompt
+  if [ -n "${INSTALL_HOOKS:-}" ]; then
+    echo "Using INSTALL_HOOKS from environment: $INSTALL_HOOKS"
+  else
+    read -r -p "Install them into .claude/settings.local.json? [Y/n]: " INSTALL_HOOKS
+    INSTALL_HOOKS="${INSTALL_HOOKS:-Y}"
+  fi
 
   if [[ "$INSTALL_HOOKS" =~ ^[Yy]$ ]]; then
     if [ -f "$SETTINGS_LOCAL" ]; then

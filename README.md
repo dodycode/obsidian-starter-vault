@@ -39,6 +39,49 @@ Concrete example:
 
 ## Quick start
 
+The easiest way to set up your workspace is with the interactive setup script. It handles both **new projects** and **existing projects**.
+
+```bash
+# Quick one-liner (downloads and runs the setup script)
+curl -sL https://raw.githubusercontent.com/dodycode/obsidian-starter-vault/main/scripts/setup-workspace-cli.ts | npx tsx
+
+# Or clone first if you prefer:
+git clone https://github.com/dodycode/obsidian-starter-vault.git
+cd obsidian-starter-vault
+pnpm install
+pnpm run setup
+```
+
+The script will guide you through:
+1. Whether you have an existing project folder or are starting fresh
+2. Workspace location
+3. Project name (used for worktree naming)
+4. Your short name
+5. Preview and confirmation
+
+### What it does
+
+**Existing project** (you already have one):
+```
+Before: ~/Projects/my-app/
+        └── my-app/          ← your existing project
+
+After:  ~/Projects/my-app-workspace/
+        ├── vault/           ← cloned from GitHub
+        └── my-app/          ← moved from original location
+```
+
+**New project** (starting from scratch):
+```
+~/Projects/my-app-workspace/
+├── vault/                   ← cloned from GitHub
+└── my-app/                  ← clone your app repo here later
+```
+
+### Alternative: Manual setup
+
+If you prefer to set things up manually:
+
 ```bash
 # 1. Clone the template into a project-named workspace folder
 mkdir -p ~/Projects/my-saas
@@ -54,17 +97,12 @@ git clone https://github.com/dodycode/obsidian-starter-vault.git \
 cd ~/Projects/my-saas/my-saas-workspace/vault
 
 # 2. Run bootstrap from inside vault/
-#    Prompts for: your short name + project name
-#    Writes vault/CLAUDE.local.md directly (your real paths, gitignored)
-#    Optionally wires the commit-quality hooks
 ./scripts/bootstrap.sh
 
 # 3. Clone your app repo as a sibling of vault/
 cd ..
 git clone <app-repo-url> my-saas
 ```
-
-That's it. New worktrees land at `~/Projects/my-saas/my-saas-workspace/my-saas-<branch>/` (siblings of `vault/`) when you use the `/new-worktree` skill from a Dev Control session.
 
 ### Where to start Claude sessions
 
