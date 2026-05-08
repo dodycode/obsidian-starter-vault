@@ -4,6 +4,38 @@ All notable changes to this template are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] — 2026-05-08
+
+### Breaking
+
+- **SDD flow rewritten from JSM 7-file Six-File Context Methodology to a 3-file shape** (`proposal.md` + `design.md` + `tasks.md`, plus optional `sub-tasks/` folder + auto-generated `progress-tracker.md`). Mirrors the redesign Sophiie's vault shipped on 2026-05-04 — keeps specs IN the workspace next to the code (matches Kiro / GitHub Spec-Kit / BMAD industry default).
+- **Spec phase moved from vault orchestrator → worktree coding agent.** Dev Control now does light intake only: source detection, GitHub Issue stub, worktree provisioning with empty spec stubs, hand off. The interview + writing of `proposal.md` / `design.md` / `tasks.md` happens inside the worktree's first Claude session, where the user can review files in VS Code with the codebase tree open.
+- **GitHub Issue is now stub-then-enrich.** Dev Control creates the issue at intake (Phase 2) with title + 1-line context only. After the coding agent's spec phase produces `proposal.md`, Phase 5b enriches the issue body via `gh issue edit`. Earlier flows wrote a full body up front from the interview output.
+- **`Templates/Six-File-Context-Methodology/` removed entirely.** The 1000-line JSM playbook + 6 blank-context scaffolds are no longer shipped. The new shape doesn't need them.
+- **`draft-<slug>/` pattern dropped.** Issue is always created at the Phase 2 stub, so there's no "scope without committing to an issue" anymore. `/refresh` no longer scans for `Tickets/draft-*/`.
+
+### Added
+
+- **`Templates/spec-driven/`** — 4 new scaffolds matching the Sophiie shape, indie-phrased (no monorepo / no Linear): `proposal.md`, `design.md`, `tasks.md`, `sub-task.md`. The `/new-worktree` skill copies these (empty) into each worktree's `context/`.
+- **Phase 5b GitHub Issue enrichment** — vault-side orchestrator step that reads `<worktree>/context/proposal.md` after the coding agent's spec phase and runs `gh issue edit` to fill in the issue body. Triggered by user saying "enrich `<repo>#NN`" or by `/refresh` detecting the gap.
+- **Template A (dual-mode worktree CLAUDE.local.md)** in `dev-control-workflows.md` — written by `/new-worktree`. The agent reads `context/proposal.md`: empty → Session 1 spec phase, populated → implementation phase. Same file, two modes.
+
+### Changed
+
+- `vault/.claude/rules/dev-control-spec-driven.md` — full rewrite. Now ~150 lines (was ~566). Covers Phase 1 source detection, Phase 2 GitHub Issue stub, Phase 3 worktree handoff, Phase 5b enrichment. Drops Phase 3 (file-menu proposal) + Phase 4 (file generation) + Phase 5 (full-body issue creation) + Draft mode + Worktree-side coding-agent contract — those either move to the worktree side (`~/.claude/rules/spec-driven-development.md`) or get deleted entirely.
+- `vault/.claude/rules/dev-control-workflows.md` — full rewrite. Drops Template B (legacy short-circuit per-task block). Single Template A is dual-mode. Active Work cleanup procedure no longer scans for drafts. Cleanup-after-merge procedure preserves the new 3-file shape.
+- `vault/CLAUDE.md` — full rewrite mirroring Sophiie's vault router. Folder map, where-to-WRITE table, search recipes, ownership rules, Claude session rules. Active SDD spec files listed as living in `<worktree>/context/` during build (was: vault `Tickets/<repo>-<num>/context/`).
+- `vault/Templates/CLAUDE.md` — drops Six-File reference, points at `spec-driven/`.
+- `vault/Tickets/CLAUDE.md` — drops Drafts subsection. SDD context-files list shows the new 3-file shape and notes that active files live in the worktree, not the vault.
+- `vault/.claude/skills/new-worktree/SKILL.md` — Step 6.5 rewritten: scaffold empty 3-file `context/` from `Templates/spec-driven/` + write Template-A dual-mode `CLAUDE.local.md`. Drops Template B branch entirely.
+- `vault/.claude/skills/refresh/SKILL.md` — drops Drafts scanning. Cleanup procedure preserves the new 3-file shape (was: `architecture.md` / `ai-workflow-rules.md`).
+- `vault/scripts/bootstrap.sh` — `CLAUDE.local.md` heredoc updated. Section 1 is now "Idea → GitHub Issue STUB → Worktree (Light Intake)". New section 1b for Phase 5b enrichment. Guardrails add "NEVER write proposal/design/tasks files yourself".
+- `README.md` (root) — SDD section rewritten to describe the split (vault orchestrator light intake + worktree coding agent does the spec). Vault structure tree mentions `spec-driven/` and post-merge SDD archive in `Tickets/`.
+
+### Why
+
+The JSM 7-file shape was thorough but inverted the review surface: the vault orchestrator wrote `project-overview.md` / `architecture.md` / `code-standards.md` / `ai-workflow-rules.md` / etc. before the worktree existed, so the user had to review prose without the codebase tree. The new shape keeps the same depth (`design.md` carries Hard rules / Storage / Auth / Background tasks, equivalent to architecture.md + invariants from ai-workflow-rules) but moves authorship into the worktree, where review happens with the code visible. Also: 3 files beat 7 files for cognitive load, and the orchestrator stays lightweight.
+
 ## [1.3.0] — 2026-05-04
 
 ### Changed

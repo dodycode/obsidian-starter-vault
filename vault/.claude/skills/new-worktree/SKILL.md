@@ -1,16 +1,17 @@
 ---
 name: new-worktree
-description: Create a new git worktree and branch from a GitHub issue identifier, then copy config files. Use when the user wants to create a new worktree, start work on a GitHub issue in a new worktree, or says "new worktree".
+description: Create a new git worktree and branch from a GitHub issue identifier, then scaffold the SDD context/ folder + dual-mode CLAUDE.local.md. Use when the user wants to create a new worktree, start work on a GitHub issue in a new worktree, or says "new worktree".
 allowed-tools:
   - Bash
   - Read
+  - Write
   - AskUserQuestion
   - ToolSearch
 ---
 
 # New Worktree Skill
 
-Create a new git worktree with a branch named after a GitHub issue identifier, then set it up with project config files.
+Create a new git worktree with a branch named after a GitHub issue identifier, scaffold the SDD `context/` folder with empty stubs, write a dual-mode `CLAUDE.local.md`, then copy env files + MCP + the `/qa-fix` skill.
 
 **Input**: `/new-worktree <repo>#<num>` (e.g. `dodycode/my-saas#42`) or `/new-worktree <num>` if a default repo is set in your `CLAUDE.local.md`.
 
@@ -32,6 +33,7 @@ Parse the input to extract owner, repo, and issue number:
 ## Step 3: Create the Worktree
 
 ```bash
+cd "<project-repo>"
 git fetch origin
 DEFAULT_BRANCH=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name)
 git worktree add -b <branch-name> <worktree-path> "origin/$DEFAULT_BRANCH"
@@ -64,7 +66,7 @@ mkdir -p <target>/.claude/skills
 cp -r <vault>/.claude/skills/qa-fix <target>/.claude/skills/qa-fix 2>/dev/null
 ```
 
-**Note on `<source>/CLAUDE.local.md`**: this file is NOT copied from source. The worktree's `CLAUDE.local.md` is written explicitly in Step 6.5 below — either as the SDD entry-point or the legacy per-task block. Copying the app overlay would dump the project-overview + working-style rules on top of the per-task content (the auto-loaded app `CLAUDE.md` already covers all of it). See `<vault>/.claude/rules/dev-control-workflows.md` "Pre-write check" for the rationale.
+**Note on `<source>/CLAUDE.local.md`**: this file is NOT copied from source. The worktree's `CLAUDE.local.md` is written explicitly in Step 6.5 below as the SDD dual-mode entry-point. Copying the app overlay would dump the project-overview + working-style rules on top of the per-task content (the auto-loaded app `CLAUDE.md` already covers all of it). See `<vault>/.claude/rules/dev-control-workflows.md` "Pre-write check" for the rationale.
 
 ## Step 5: Sync git exclude
 
@@ -91,63 +93,71 @@ jq --arg src "$SOURCE_PATH" --arg tgt "$TARGET_PATH" '
 
 If the source project entry has no `mcpServers` or it's empty, skip this step.
 
-## Step 6.5: Copy SDD context + write CLAUDE.local.md
+## Step 6.5: Scaffold context/ + write dual-mode CLAUDE.local.md
 
-This step replaces the per-task block writer that previously lived in `dev-control-workflows.md`.
+This is the SDD scaffolding step. The orchestrator never authors specs in the vault — the coding agent does, inside this worktree. So the scaffold here is empty stubs: the agent fills them in during Session 1.
 
-### 6.5a — Detect SDD context files
+### 6.5a — Scaffold empty context/ stubs
 
-Check whether Dev Control's SDD flow generated context files for this ticket:
-
-```bash
-SDD_CONTEXT_DIR="<vault>/Tickets/<repo>-<num>/context"
-```
-
-Where `<vault>` resolves per-machine via `CLAUDE.local.md` "Path Bindings".
-
-If `$SDD_CONTEXT_DIR` exists → **SDD path** (Template A entry-point).
-If it does NOT exist → **Short-circuit path** (Template B legacy block) — Dev Control either short-circuited at Phase 2 (spike/one-line tweak) or you're invoking `/new-worktree` outside of SDD.
-
-### 6.5b — SDD path (context files exist)
-
-Copy the context folder, then write the entry-point:
+Create `<target>/context/` with three empty stubs (frontmatter + section headers, no body content):
 
 ```bash
-cp -r "$SDD_CONTEXT_DIR" <target>/context
+mkdir -p <target>/context
 ```
+
+Write each stub from the corresponding template at `<vault>/Templates/spec-driven/`:
+
+- `<target>/context/proposal.md` — copy `<vault>/Templates/spec-driven/proposal.md` content. Substitute `<repo>#NN [Title]` in the H1 with the real `<repo>#<num>` and the GitHub issue title (no body filling — the user/agent fills it in Session 1).
+- `<target>/context/design.md` — same, from `Templates/spec-driven/design.md`.
+- `<target>/context/tasks.md` — same, from `Templates/spec-driven/tasks.md`.
+
+Do NOT create `progress-tracker.md` here. The coding agent generates it at the end of Session 1's spec phase.
+
+Do NOT create `sub-tasks/`. The coding agent creates that folder in Session 1 only if the user opts into sub-task expansion.
+
+### 6.5b — Write CLAUDE.local.md from Template A
 
 Fetch the GitHub issue title (the user already verified the issue exists in Step 1):
 
 ```bash
 TITLE=$(gh issue view <num> --repo <owner>/<repo> --json title -q .title)
+ISSUE_URL=$(gh issue view <num> --repo <owner>/<repo> --json url -q .url)
 ```
 
-Write `<target>/CLAUDE.local.md` (overwrite, not append) using **Template A** from `<vault>/.claude/rules/dev-control-workflows.md`. Substitute `<repo>#<num>` and `<Title from GitHub Issue>`. Replace `<daily-today>` with the resolved daily-note path from the user's `CLAUDE.local.md` Path Bindings.
+Write `<target>/CLAUDE.local.md` (overwrite, not append) using **Template A** from `<vault>/.claude/rules/dev-control-workflows.md` ("Template A — Dual-mode SDD entry-point"). Substitute:
 
-### 6.5c — Short-circuit path (no context files)
+- `<repo>#<num>` and `[Title from GitHub Issue]` in the H1
+- The GitHub URL into the `## Source material` section (under `GitHub: <url>`)
+- Any other source URLs the orchestrator gathered at intake (paste them under "## Source material")
+- `<daily-today>` with the resolved daily-note path from the user's `CLAUDE.local.md` Path Bindings
 
-Use **Template B** from `<vault>/.claude/rules/dev-control-workflows.md` (legacy per-task block — Objective / Affected Areas / Acceptance Criteria / Key Files / Notes / Daily Note Logging).
+Template A is dual-mode: the agent reads `context/proposal.md`. Empty → spec phase (Session 1). Populated → implementation phase (Session 2+).
 
-Pull Objective + Acceptance Criteria from the GitHub issue body. If the user invoked `/new-worktree` outside SDD (no interview happened), fill in placeholder values and ask the user to fill them in before starting the coding session.
-
-Write `<target>/CLAUDE.local.md` (overwrite, not append).
-
-### 6.5d — Sanity check
+### 6.5c — Sanity check
 
 ```bash
 head -1 <target>/CLAUDE.local.md
+ls <target>/context/
 ```
 
-The first line MUST be `# Task: <repo>#<num> — ...`. If it shows the app repo `CLAUDE.md` opening line instead, the overwrite didn't take — re-run Step 6.5b or 6.5c.
+The first line MUST be `# Task: <repo>#<num> — ...`. The `context/` listing MUST include `proposal.md`, `design.md`, `tasks.md` (no `progress-tracker.md`, no `sub-tasks/`). If either check fails, re-run Step 6.5.
 
 ## Step 7: Report the Result
 
-Summarize: branch name, worktree path, files copied, MCP servers copied, **whether SDD context files were copied (Step 6.5b path) or short-circuit block written (Step 6.5c path)**.
-Suggest: `cd <worktree-path>` and start a fresh Claude session — the worktree's `CLAUDE.local.md` will guide the coding agent through `context/*.md` (SDD path) or the per-task block (short-circuit path).
+Summarize:
+- Branch name + worktree path
+- Files copied (env, MCP, /qa-fix)
+- Empty SDD stubs scaffolded: `context/proposal.md`, `context/design.md`, `context/tasks.md`
+- Dual-mode `CLAUDE.local.md` written
+
+Hand off:
+
+> Worktree ready at `<worktree-path>`. Open it in VS Code, then start a fresh Claude session there. Session 1 is the SDD spec phase — the coding agent will read source material from `CLAUDE.local.md`, grep the codebase, run the spec interview with you, and fill in `context/proposal.md` + `context/design.md` + `context/tasks.md`. After approval, fresh session per task.
 
 ## Guardrails
 
 - Always `git fetch origin` before creating
 - Base branch is the GitHub repo's default branch (`gh repo view --json defaultBranchRef`)
 - Do NOT push the branch
-- Only fetch from `gh issue view --json number,title,body,state` to verify the issue exists — do NOT fetch extra details (comments, reactions, timeline) by default
+- Only fetch `gh issue view --json number,title,body,state` to verify the issue exists — do NOT fetch extra details (comments, reactions, timeline) by default
+- NEVER fill in proposal.md / design.md / tasks.md content from this skill. The orchestrator scaffolds empty stubs only. The coding agent in the worktree fills them in during Session 1.

@@ -1,7 +1,7 @@
 ---
 owner: <your-name>
 ---
-# Tickets — long-form ticket notes
+# Tickets — long-form ticket notes + post-merge SDD archive
 
 ## When to add a file here
 
@@ -13,7 +13,7 @@ Folder name = `<repo>-<num>` where:
 
 Examples: `Tickets/my-saas-42/notes.md`, `Tickets/my-saas-101/notes.md`. For single-repo projects, `Tickets/gh-42/notes.md` is also fine.
 
-## Contents
+## Contents (notes.md)
 
 ```markdown
 ---
@@ -54,23 +54,21 @@ owner: <your-name>
 
 ## Spec-Driven Development context files
 
-If the Dev Control SDD flow runs for a ticket, additional files land at `Tickets/<repo>-<num>/context/`:
+Under the new SDD shape, **active spec files live in the worktree, not in the vault during the build**. The coding agent generates and edits them in `<worktree>/context/`:
 
-- `project-overview.md` — product definition, goals, features, scope
-- `architecture.md` — system structure, boundaries, storage model, invariants
-- `code-standards.md` — implementation rules and conventions
-- `ai-workflow-rules.md` — development workflow, scoping rules, delivery approach
-- `ui-context.md` — theme, colors, typography, component conventions
-- `bugfix-spec.md` — root cause + fix design (for bug tickets)
-- `progress-tracker.md` — current phase, completed work, open questions, next steps
-- `specs/00-build-plan.md` — unit decomposition + ordering
-- `specs/NN-<unit-name>.md` — per-unit specs, generated just-in-time before each unit
+- `proposal.md` — functional analysis (Summary / What / Why / Scope / Not in scope / Success criteria)
+- `design.md` — high-level architecture (System boundaries / Storage model / Auth scoping / Background tasks / Hard rules)
+- `tasks.md` — build plan (Task 01..NN with Builds / Boundary / Depends on / Verify)
+- `sub-tasks/NN-<name>.md` — optional, lean per-task expansion (Goal / References / Verify)
+- `progress-tracker.md` — live checklist; coding agent checks off after each task
 
-Coding agents in the worktree update `progress-tracker.md` after each meaningful change. The worktree's `context/` syncs back to the vault at the end of work (see `dev-control-workflows.md` cleanup section).
+When the worktree is cleaned up after merge, the orchestrator (per `dev-control-workflows.md` "Cleaning Up After Merge") syncs `<worktree>/context/` → `<vault>/Tickets/<repo>-<num>/context/` BEFORE removing the worktree, then archives the whole ticket folder to `Archive/Tickets/<repo>-<num>/`.
 
-## Drafts (no GitHub Issue yet)
+So inside this `Tickets/` folder you'll see two states:
+- **In-flight tickets**: only `notes.md` (if any) — the live spec is in the worktree.
+- **Post-merge tickets**: `notes.md` + `context/` folder with the synced final spec.
 
-If you start the SDD flow before creating the GitHub Issue, files land at `Tickets/draft-<slug>/`. When the GitHub Issue is created in Phase 5, the folder is renamed to `Tickets/<repo>-<num>/`.
+The folder is read-only history once archived. Future tickets in the same area can read past archives for context.
 
 ## Subfolders
 

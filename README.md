@@ -132,8 +132,8 @@ These are referenced by the auto-loading rules under `vault/.claude/rules/dev-co
     │       ├── Active Work.md    ← live dashboard
     │       ├── Daily/            ← per-day work logs
     │       └── README.md         ← your profile
-    ├── Templates/                ← starter scaffolds (daily, adr, runbook, feature-moc)
-    └── Tickets/                  ← per-issue notes (mirrors GitHub Issues)
+    ├── Templates/                ← starter scaffolds (daily, adr, runbook, feature-moc, spec-driven/)
+    └── Tickets/                  ← per-issue notes + post-merge SDD archive (mirrors GitHub Issues)
 ```
 
 ## What you get out of the box
@@ -148,16 +148,21 @@ These are referenced by the auto-loading rules under `vault/.claude/rules/dev-co
 - `/sync-worktrees` — pull latest default branch + restack all child worktrees
 - `/refresh` — sync the Active Work dashboard from daily notes + GitHub issues + worktree state
 
-**Spec-Driven Development flow** (6 phases):
+**Spec-Driven Development flow** (split between vault orchestrator + worktree coding agent):
 
-1. Source detect (chat / screenshot / GitHub issue)
-2. Interview to 95% confidence
-3. Propose context files
-4. Generate context files into `Tickets/<repo>-<num>/context/`
-5. Materialize GitHub issue (`gh issue create`)
-6. Provision worktree (via `/new-worktree`)
+Vault-side orchestrator (Dev Control — light intake only):
+1. Source detect (chat / screenshot / GitHub issue / GitLab issue)
+2. Create GitHub Issue **stub** (title + 1-line context) — not a full body yet
+3. `/new-worktree` provisions the worktree with empty `context/proposal.md` + `context/design.md` + `context/tasks.md` stubs and a dual-mode `CLAUDE.local.md`
+4. Hand off — orchestrator does NOT write the spec
 
-Run by Dev Control before any new piece of work — turns vague ideas into structured tickets + context-rich worktrees the implementing agent can read cold.
+Worktree-side coding agent (in a fresh Claude session):
+- **Session 1 (spec phase)**: read source material, grep relevant code, interview the user to 95% confidence, write `proposal.md` + `design.md` + `tasks.md` (and optionally `sub-tasks/`), generate `progress-tracker.md`, end. You review the files in VS Code with the codebase tree open.
+- **Sessions 2..N (implementation)**: one task per fresh session, in numerical order. After the final task, the agent auto-pushes the branch + opens a PR.
+
+Phase 5b — back on the vault side, after the coding agent has populated `proposal.md`, Dev Control can enrich the GitHub Issue body via `gh issue edit` (triggered by "enrich `<repo>#NN`" or by `/refresh` detecting the gap).
+
+This shape mirrors industry default (Kiro / GitHub Spec-Kit / BMAD) — keep the spec IN the workspace next to the code, not in a separate doc the user reviews without context.
 
 ## Prerequisites
 

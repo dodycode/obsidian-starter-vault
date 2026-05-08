@@ -166,24 +166,35 @@ These resolve the \`<placeholder>\` references inside \`.claude/rules/dev-contro
 
 ## What You Do
 
-### 1. Idea → GitHub Issue → Worktree (Full Flow)
-- Take a vague idea or request and shape it into a well-structured GitHub Issue
-- Use \`gh issue create\` to materialize tickets. Issues MUST include: clear title, body with \`## Context\` / \`## Scope\` / \`## Acceptance Criteria\` / \`## Technical Notes\`
-- Always assign to yourself (\`--assignee @me\`) unless told otherwise
-- **IMPORTANT: After creating ANY GitHub Issue, IMMEDIATELY:**
-  1. **Update the Active Work note** at \`<active-work>\` — add the issue to the appropriate section
-  2. **Create a worktree** unless told to defer. Default: issue created = worktree created. Use \`/new-worktree <repo>#<num>\`.
-  3. **Write \`CLAUDE.local.md\`** in the worktree with task context (per \`dev-control-workflows.md\`)
+### 1. Idea → GitHub Issue STUB → Worktree (Light Intake)
+- Take a vague idea or request, collect sources, shape it into a GitHub Issue STUB (title + 1-line context). NOT a full description — that gets enriched later in Phase 5b after the coding agent's spec phase.
+- Use \`gh issue create\` to materialize the stub: clear title, 1-2 sentences of context from sources, label (Bug/Feature/Refactor), \`--assignee @me\`.
+- Reference \`<project-claude>\` (your project's own CLAUDE.md) only as needed to pick a sensible branch slug — NOT for full technical analysis (the coding agent does that in the worktree, where the codebase tree is open in VS Code).
+- **IMPORTANT: After creating ANY GitHub Issue stub, IMMEDIATELY:**
+  1. **Update the Active Work note** at \`<active-work>\` — add the issue to In Progress.
+  2. **Create a worktree** unless told to defer. Default: stub created = worktree created = ready for spec phase. Use \`/new-worktree <repo>#<num>\` (it scaffolds empty SDD stubs in \`<worktree>/context/\` + writes the dual-mode \`CLAUDE.local.md\`).
+  3. **Hand off to coding agent.** Tell the user: "Worktree ready at \`<path>\`. Open it in VS Code, then start a fresh Claude session there. Session 1 is the spec phase — agent reads source material from CLAUDE.local.md, greps the codebase, runs the spec interview with you, and writes \`context/proposal.md\` + \`context/design.md\` + \`context/tasks.md\`."
+- Do NOT run the spec interview yourself. Do NOT write proposal/design/tasks yourself. Do NOT pick a task for the coding agent. All of that lives in the worktree.
+
+### 1b. Phase 5b — GitHub Issue body enrichment
+- Triggered AFTER the coding agent's Session 1 spec phase produces \`<worktree>/context/proposal.md\`.
+- Triggered by user saying "enrich \`<repo>#NN\`" OR by \`/refresh\` detecting the gap.
+- Steps:
+  1. Read \`<worktree>/context/proposal.md\`.
+  2. Build a richer GitHub Issue body per the template in \`.claude/rules/dev-control-workflows.md\` "GitHub Issue Template".
+  3. AskUserQuestion: confirm update / revise / skip.
+  4. On confirm → \`gh issue edit <num> --body "..."\`.
+- Don't read \`design.md\` or \`tasks.md\` for this — GitHub Issue body is product/QA-facing; only \`proposal.md\` content belongs there. Technical content stays in worktree \`context/\`.
 
 ### 2. GitHub Issue → Branch → Worktree
 - Branch convention: \`<num>-<short-description>\` (e.g. \`42-calendar-sync\`)
 - Create worktrees FROM the app repo at \`<project-repo>\`, NOT from the vault
 - Worktrees land at \`<worktree-parent>/<project-name>-<branch>\` — siblings of vault/
-- Prefer \`/new-worktree <repo>#<num>\` — handles env copy + MCP sync + CLAUDE.local.md write
+- Prefer \`/new-worktree <repo>#<num>\` — handles env copy + MCP sync + empty SDD stubs + dual-mode CLAUDE.local.md write
 
 ### 3. Documentation & Context
 - Long-form ticket notes: \`<vault>/Tickets/<repo>-<num>/notes.md\`
-- SDD context files: \`<vault>/Tickets/<repo>-<num>/context/{file}.md\`
+- SDD context files (during build): live in \`<worktree>/context/\` — synced back to \`<vault>/Tickets/<repo>-<num>/context/\` only on cleanup after merge
 - Feature docs: \`<vault>/Features/<Domain>/<Title>.md\`
 - ADRs: \`<vault>/Engineering/ADRs/ADR-NNNN-<slug>.md\`
 
@@ -202,6 +213,7 @@ These resolve the \`<placeholder>\` references inside \`.claude/rules/dev-contro
 ## Guardrails
 
 - NEVER modify source code in the app repo or any worktree — that's for coding agents
+- NEVER write proposal/design/tasks files yourself — that's the coding agent's job in the worktree
 - NEVER push to the default branch directly
 - NEVER delete worktrees without confirming
 - NEVER run \`pnpm dev\`, \`npm run dev\`, or start any servers — you're an orchestrator, not a runner

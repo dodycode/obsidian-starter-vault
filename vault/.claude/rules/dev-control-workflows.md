@@ -1,41 +1,47 @@
 # Dev Control Workflow Procedures
 
-> **User-agnostic.** Paths use placeholders (`<project-repo>`, `<vault>`, `<your-name>`, `<active-work>`, `<daily-today>`) which `CLAUDE.local.md` resolves to absolute paths on your machine. Don't hardcode user-specific paths here.
+> **User-agnostic.** Paths use placeholders (`<vault>`, `<project-repo>`, `<project-name>`, `<workspace>`, `<your-name>`, `<active-work>`, `<daily-today>`) which `CLAUDE.local.md` resolves to absolute paths. Don't hardcode user-specific paths here.
 
 ## Spec-Driven Flow — start here
 
-Every Dev Control session that opens a new piece of work runs the **Spec-Driven Development (SDD) flow** before provisioning a worktree. The flow has 6 phases:
+The SDD flow is split between the orchestrator (this file's audience) and the coding agent inside the worktree. Specs are written in the worktree, where the user has the codebase tree open in VS Code for proper review — matching industry default (Kiro / GitHub Spec-Kit / BMAD all keep specs IN the workspace).
 
-1. **Source detection + parallel read** — GitHub Issue, screenshot, or pure chat. Vault hits read in parallel via fork agents.
-2. **Combined interview to 95% confidence** — AskUserQuestion only. First question includes a spike short-circuit.
-3. **Propose context files** — agent picks 0-7 of `project-overview.md`, `architecture.md`, `code-standards.md`, `ai-workflow-rules.md`, `ui-context.md`, `bugfix-spec.md`, `progress-tracker.md`. User confirms via AskUserQuestion.
-4. **Generate context + build plan** — write to `<vault>/Tickets/<repo>-<num>/context/` (or `Tickets/draft-<slug>/` if no issue yet).
-5. **GitHub Issue materialization** — skip if issue already exists. Else `gh issue create --repo <repo> --title "..." --body "..." --assignee @me` using interview output.
-6. **Worktree provisioning** — `/new-worktree` copies `context/` into the worktree and writes `CLAUDE.local.md` as a JSM-style entry-point.
+### Orchestrator side (Dev Control in vault)
 
-Full flow content (source detection rules, file-generation prompts, GitHub field mapping, draft mode, sub-step contracts) lives in `dev-control-spec-driven.md`. This file is the orchestration layer (worktree, Active Work, GitHub Issue lifecycle, handoff).
+Light intake only. Three steps:
 
-### Short-circuit path (spike / one-line tweak)
+1. **Source detection + parallel read** — GitHub Issue, GitLab Issue, screenshot, or pure chat. Vault hits read in parallel via fork agents. Output: structured summary + source URLs/paths to pass into the worktree.
+2. **GitHub Issue stub** — Path A (no issue): create stub with title + 1-line context. Path B (issue exists): no-op. Rich body gets enriched in Phase 5b after the coding agent's spec phase.
+3. **Worktree provisioning** — `/new-worktree` creates the worktree with EMPTY spec stubs in `context/`, writes dual-mode `CLAUDE.local.md` containing the source URLs/paths from Step 1 in the "Source material" section.
 
-If Phase 2's first question reveals the work is a spike or one-line config bump:
-- Skip Phases 3-4 (no context files generated)
-- Phase 5 still creates a lightweight GitHub Issue if none exists
-- Phase 6 provisions the worktree using the **legacy per-task block** (template below) instead of the SDD entry-point
+Then HAND OFF. Dev Control's job ends here. No interview, no proposal/design/tasks authoring.
 
-This preserves a fast path for trivial work without forcing the full SDD machinery.
+### Coding-agent side (worktree)
+
+Session 1 = spec phase. Coding agent reads source material, greps code, runs interview, writes `context/proposal.md` + `context/design.md` + `context/tasks.md`, optionally generates `context/sub-tasks/`, then generates `context/progress-tracker.md` and ends. User reviews real files in VS Code with the codebase tree visible. Full content for the spec phase: `~/.claude/rules/spec-driven-development.md`.
+
+Sessions 2..N = implementation phase. One task per fresh session, in numerical order. Final session auto-pushes + opens PR. Full content: `~/.claude/rules/session-per-task.md` and Template A in this file.
+
+### Phase 5b (orchestrator side, after spec phase)
+
+Once the coding agent has populated `<worktree>/context/proposal.md`, the orchestrator (in a follow-up vault session) reads that file and enriches the GitHub Issue body from it. Triggered by user saying "enrich `<repo>#NN`" or by `/refresh` detecting the gap.
+
+Full orchestrator-side intake content (source detection, GitHub Issue stub, Phase 5b template) lives in `dev-control-spec-driven.md`.
+
+**Every ticket runs the full flow.** No short-circuit for spike / one-line tweaks — tiny tickets just produce tiny files.
 
 ---
 
 ## Creating a Worktree for a GitHub Issue
 
 ### Prerequisites
-- GitHub Issue exists (`<repo>#<num>`) — created either in Phase 5 of SDD flow, or previously
-- SDD flow's context files exist at `<vault>/Tickets/<repo>-<num>/context/` — OR the work is on the short-circuit path (no context files)
-- You know which modules/areas are affected
+- GitHub Issue exists (`<repo>#<num>`) — orchestrator stub created in Phase 2, or pre-existing
+- Source URLs/paths captured in conversation memory (from Phase 1)
+- You know roughly which area of the codebase this affects (for branch naming)
 
 ### Preferred path: use `/new-worktree`
 
-The `/new-worktree <repo>#<num>` skill is canonical — it copies env files + MCP servers + creates the branch + worktree, **and** copies `<vault>/Tickets/<repo>-<num>/context/` into the worktree, **and** writes `CLAUDE.local.md` as the SDD entry-point. Use it unless there's a reason not to.
+The `/new-worktree <repo>#<num>` skill is canonical — it copies env files + MCP servers + creates the branch + worktree, **and** scaffolds empty spec stubs in `<worktree>/context/`, **and** writes the dual-mode `CLAUDE.local.md` (Template A below). Use it unless there's a reason not to.
 
 ### Manual fallback
 
@@ -50,17 +56,18 @@ git pull origin "$DEFAULT_BRANCH"
 # 2. Create the branch
 git checkout -b 123-short-description
 
-# 3. Create the worktree
+# 3. Create the worktree (sibling of <project-repo>)
 git worktree add "../<project-name>-123-short-description" 123-short-description
 
 # 4. Copy environment files
 cp .env "../<project-name>-123-short-description/" 2>/dev/null
 cp .env.local "../<project-name>-123-short-description/" 2>/dev/null
 
-# 5. Copy SDD context files (if they exist)
-if [ -d "<vault>/Tickets/<repo>-123/context" ]; then
-  cp -r "<vault>/Tickets/<repo>-123/context" "../<project-name>-123-short-description/"
-fi
+# 5. Scaffold empty spec stubs in worktree's context/
+mkdir -p "../<project-name>-123-short-description/context"
+# Each stub has frontmatter + section headers, all sections empty.
+# Coding agent's Session 1 fills them in. progress-tracker.md is NOT created
+# here — coding agent generates it at end of Session 1.
 
 # 6. Install dependencies (use whatever your project uses)
 cd "../<project-name>-123-short-description"
@@ -85,88 +92,127 @@ Create `CLAUDE.local.md` at the **repo root** of the new worktree (NOT in `.clau
 
 #### Pre-write check (mandatory — every session)
 
-`/new-worktree` and similar init paths sometimes leave a worktree-root `CLAUDE.local.md` that is a **verbatim duplicate of the app repo's `CLAUDE.md`**. That duplicate is dead weight:
+`/new-worktree` and similar init paths can leave a worktree-root `CLAUDE.local.md` that is a **verbatim duplicate of the app repo's `CLAUDE.md`**. That duplicate is dead weight:
 
 - The app repo's checked-in `CLAUDE.md` auto-loads in every Claude session running in the worktree.
 - Duplicating it inside the gitignored `CLAUDE.local.md` adds noise on top of the auto-loaded copy and crowds out the per-task signal.
-- The coding agent's task context (objective, plan reference, affected files, daily-note path) gets buried.
+- The coding agent's task context (objective, source URLs, daily-note path) gets buried.
 
 **Rule:** Before writing, READ the existing `CLAUDE.local.md` (if any):
 
-- **Matches app repo `CLAUDE.md` content** (project overview, general code style, generic working-style rules) → **OVERWRITE in full** with the per-task content (SDD entry-point or short-circuit block — see templates below). Do NOT preserve any of the duplicate.
-- **Empty or missing** → write the per-task content fresh.
+- **Matches app repo `CLAUDE.md` content** (project overview, general code style, generic working-style rules) → **OVERWRITE in full** with the SDD entry-point template below. Do NOT preserve any of the duplicate.
+- **Empty or missing** → write the template fresh.
 - **Has prior task-specific content** (rare — would only happen if a previous session started one) → confirm with the user before overwriting.
 
-The per-task content is the **entire content** of `CLAUDE.local.md`. Nothing else lives in this file.
+The SDD entry-point template is the **entire content** of `CLAUDE.local.md`. Nothing else lives in this file.
 
-#### Template A — SDD entry-point (full SDD flow)
+#### Template A — Dual-mode SDD entry-point
 
-Use this template when context files exist at `<vault>/Tickets/<repo>-<num>/context/`. The skill copies the folder into the worktree, then writes this file pointing at it.
+Use this template for every worktree provisioned by `/new-worktree`. The skill scaffolds empty spec stubs in `<worktree>/context/`, then writes this file pointing at them. The first session detects empty stubs and runs the spec phase; subsequent sessions detect populated stubs and run implementation.
 
-```markdown
+> **Audience: the coding agent that opens this worktree.** This file auto-loads into the agent's context — write it as instructions to the agent in second person. Do NOT include a "starter prompt to copy/paste" — the agent reads this file directly, no separate paste step.
+
+````markdown
 # Task: <repo>#<num> — [Title from GitHub Issue]
 
-## Application Building Context
+## Source material
+[GitHub URL / GitLab URL / screenshot path / raw chat snippet
+ — orchestrator pastes whatever sources it had at intake]
 
-Read the following files in order before implementing or making any architectural decision:
+GitHub: <url>
 
-1. `context/project-overview.md` — product definition, goals, features, scope
-2. `context/architecture.md` — system structure, boundaries, storage model, invariants
-3. `context/ui-context.md` — theme, colors, typography, component conventions
-4. `context/code-standards.md` — implementation rules and conventions
-5. `context/ai-workflow-rules.md` — development workflow, scoping rules, delivery approach
-6. `context/progress-tracker.md` — current phase, completed work, open questions, next steps
-7. `context/specs/00-build-plan.md` — unit decomposition + ordering
-8. `context/specs/NN-<unit-name>.md` — generate just-in-time before each unit
+## Mode detection (do this first every session)
 
-Skip files that don't exist for this ticket — Dev Control only generated the relevant ones.
+Read `context/proposal.md`. If it's empty (only frontmatter + headers), this is
+**Session 1: SDD spec phase**. Skip to "Spec phase" below.
 
-Update `context/progress-tracker.md` after each meaningful implementation change.
+If `context/proposal.md` is populated, this is an **implementation session**.
+Skip to "Implementation phase" below.
 
-If implementation changes the architecture, scope, or standards documented in the context files, update the relevant file before continuing.
+---
 
-## Daily Note Logging
-**IMPORTANT**: Log your work in today's daily note as you go.
+## Spec phase (Session 1 only)
+
+Goal: produce approved `context/proposal.md`, `context/design.md`, `context/tasks.md`
+(and optionally `context/sub-tasks/`) plus `context/progress-tracker.md` that
+future sessions implement against.
+
+Follow `~/.claude/rules/spec-driven-development.md` end-to-end:
+1. Phase 1 — Read source material above + grep relevant code in this worktree
+2. Phase 2 — Combined interview to 95% confidence (AskUserQuestion)
+3. Phase 3 — Write proposal/design/tasks all-at-once + revise loop
+4. Phase 4 — Optional sub-tasks (ask user if tasks.md is big)
+5. Phase 5 — Generate `context/progress-tracker.md` from approved tasks/sub-tasks
+6. End session. Tell user: "Spec ready. Open files in VS Code, then start a fresh
+   session for task 01."
+
+Do NOT implement in this session. Do NOT pick a task. Spec only.
+
+---
+
+## Implementation phase (Session 2+)
+
+Tasks are done in fixed numerical order. You cannot skip, reorder, or
+parallelize. One task per fresh session. Agent never auto-advances.
+
+At session start:
+
+1. Read `context/progress-tracker.md` ONCE. Identify the lowest-numbered
+   un-checked task (or sub-task if `sub-tasks/` exists). That's THE task
+   for this session. No other.
+2. Tell the user "I'll work on task NN — <name>. Confirm to proceed."
+   Wait for "go" / "yes" / "proceed". This catches cases where the user
+   wants to override (e.g. they fixed something out-of-band, want to skip).
+3. Read `context/proposal.md` + `context/design.md` only for the sections
+   that task touches. Skim, don't dump.
+4. If `context/sub-tasks/` exists, read the matching `NN-<name>.md` file.
+   Otherwise read just that task's entry in `context/tasks.md`.
+5. Execute the task. No plan mode by default.
+6. If anything in the spec is unclear or contradicts the code you see —
+   STOP. Use AskUserQuestion. Don't half-implement, don't guess.
+7. Run typecheck + lint (use whatever the project provides — `pnpm typecheck`,
+   `npm run typecheck`, `cargo check`, etc.). Fix everything.
+8. Update `context/progress-tracker.md` — check off ONLY this one task.
+9. Update today's daily note per `~/.claude/rules/dev-control-daily-notes.md`
+   (or `<vault>/.claude/rules/dev-control-daily-notes.md` if vault-scope).
+10. Show the diff to user. Wait for user to say "approve" / "go" / equivalent.
+11. On approval: stage + commit with a Conventional Commits message (per
+    `<vault>/.claude/rules/gh-hygiene.md`). This clears the staged list.
+12. Check `context/progress-tracker.md`. Two paths:
+    - **NOT the last task** (any un-checked task remains): session ends here.
+      Do NOT push. Do NOT advance to next task.
+    - **THIS WAS the last task** (every task now checked off): auto-push the
+      branch + open a new PR. PR title from GitHub Issue title, description
+      built from `proposal.md` per `<vault>/.claude/rules/gh-hygiene.md`. Then end.
+
+## Daily note logging
+
 - Path: <daily-today>
-- Add an entry under `## In progress`: `- [ ] <repo>#<num>: [description]`
-- When finished: move it to `## Shipped today` (checked off) with detail bullets proportional to scope
-- When closing the day: flip frontmatter `status: in-progress` → `status: complete`
-- Do NOT update <active-work> — that's managed by Dev Control
-```
+- At session start: add `- [ ] <repo>#<num>: [task NN description]` under `## In progress`.
+- When finished: move to `## Shipped today` (checked off) with detail bullets
+  proportional to scope.
+- At end of day: flip frontmatter `status: in-progress` → `status: complete`.
+- Do NOT update <active-work> — that's Dev Control's job.
 
-#### Template B — Legacy per-task block (short-circuit only)
+## Hard "do not"
 
-Use this template when SDD short-circuited at Phase 2 (spike, one-line tweak). No context files exist for this ticket.
+- Do not loop multiple tasks in one session. One task per session, end of session
+  is end of session.
+- Do not auto-advance. After commit + tracker check (and PR if last task),
+  session is OVER.
+- Do not push mid-stack. Push happens automatically ONLY when the tracker
+  shows zero un-checked tasks.
+- Do not auto-run `/tech-lead-review`. Opt-in only — see `~/.claude/rules/code-review-workflow.md`.
+- Do not update <active-work> — Dev Control owns it.
 
-```markdown
-# Task: <repo>#<num> — [Title from GitHub Issue]
+## Note on commit gate (SDD-specific override)
 
-## Objective
-[What needs to be done, in 2-3 sentences]
-
-## Affected Areas
-- `<module>` — [what changes here]
-- `<module>` — [what changes here]
-
-## Acceptance Criteria
-- [ ] [Criterion from GitHub Issue]
-- [ ] [Criterion from GitHub Issue]
-
-## Key Files
-- `path/to/relevant/file.ts` — [why it's relevant]
-
-## Notes
-- [Any gotchas, constraints, or design decisions]
-- This task short-circuited the SDD flow (spike / one-line tweak). No context files generated.
-
-## Daily Note Logging
-**IMPORTANT**: Log your work in today's daily note as you go.
-- Path: <daily-today>
-- Add an entry under `## In progress`: `- [ ] <repo>#<num>: [description]`
-- When finished: move it to `## Shipped today` (checked off) with detail bullets proportional to scope
-- When closing the day: flip frontmatter `status: in-progress` → `status: complete`
-- Do NOT update <active-work> — that's managed by Dev Control
-```
+For SDD implementation sessions, the user's "approve" on the diff IS the commit
+signal — no separate "say commit" step. This overrides the per-session
+"wait for user to say 'commit'" gate in `~/.claude/rules/commit-batching.md`.
+The commit-batching rule still applies to non-SDD sessions (small fixes, ad-hoc
+work).
+````
 
 #### Post-write verification
 
@@ -178,16 +224,19 @@ head -1 "<worktree-path>/CLAUDE.local.md"
 
 The first line MUST be `# Task: <repo>#<num> — [...]`. If it shows the app repo's `CLAUDE.md` opening instead, the overwrite didn't take — re-run the write.
 
-### Post-Creation: HAND OFF — Dev Control does NOT implement
+### Post-Creation: HAND OFF — Dev Control does NOT implement OR write the spec
 
-**Dev Control's job ends here.** Implementation runs in a SEPARATE Claude session inside the worktree. Once worktree + CLAUDE.local.md + Active Work + GitHub Issue state are set, hand off:
+**Dev Control's job ends here.** Implementation AND spec authoring both run in SEPARATE Claude sessions inside the worktree. Once worktree + CLAUDE.local.md + Active Work + GitHub Issue stub are set, hand off:
 
-1. **Tell the user:** "Worktree ready at `<worktree-path>`. `cd` into it and start a fresh Claude session — the `CLAUDE.local.md` there points at `context/*.md` files (full SDD context) OR holds the short-circuit per-task block."
-2. **DO NOT write code yourself.** No `Edit`/`Write` on app/package source. No typecheck/lint from Dev Control. Those belong to the coding agent in the worktree.
-3. **DO NOT cd into the worktree from your Dev Control session and start coding.** A fresh session = clean context = better code agent. Dev Control's context is stuffed with orchestration noise (Active Work, GitHub Issues, daily-note refresh) — not the right starting point for implementation.
-4. **Coding-agent verification is non-negotiable.** The coding agent (in the worktree) must run, in this order: typecheck → lint → fix any failures. Then stage the diff for your review. No auto-commit.
+1. **Tell the user:** "Worktree ready at `<worktree-path>`. Open it in VS Code, then start a fresh Claude session there. Session 1 is the spec phase — agent reads source material, greps code, runs interview with you, and writes `context/proposal.md` + `context/design.md` + `context/tasks.md`. You review files in VS Code with the codebase tree open. After approval, fresh session per task — one task at a time, in numerical order. Final task auto-pushes + opens PR."
+2. **DO NOT write code yourself.** No `Edit`/`Write` on app source. No typecheck/lint from Dev Control. Those belong to the coding agent in the worktree.
+3. **DO NOT write proposal/design/tasks yourself.** Spec authorship lives in the worktree, where the codebase tree is open in VS Code for proper review. The orchestrator no longer interviews or generates spec files.
+4. **DO NOT cd into the worktree from your Dev Control session and start coding.** A fresh session = clean context = better agent. Dev Control's context is stuffed with orchestration noise (Active Work, GitHub Issues, daily-note refresh) — not the right starting point for spec authoring or implementation.
+5. **Coding-agent contracts per session:**
+   - Session 1 (spec phase): runs `~/.claude/rules/spec-driven-development.md` — read sources, grep code, interview, write proposal/design/tasks/sub-tasks, generate progress-tracker, end. Does NOT pick a task or implement.
+   - Sessions 2..N (implementation): one user-confirmed task per session, no plan mode by default, execute → typecheck → lint → update tracker → daily note → stage → user approves → commit → end. Final session auto-pushes + opens PR. `/tech-lead-review` opt-in.
 
-**Why the split matters:** Dev Control orchestrates (GitHub Issues, Active Work, worktrees, plans, handoff context). Coding agents implement (read worktree CLAUDE.local.md, write code, gate with typecheck + lint, stage). Two distinct roles, two distinct sessions. Mixing them produces noisy context, dropped verification steps, and incomplete handoffs.
+**Why the split matters:** Dev Control orchestrates (GitHub Issues, Active Work, worktrees, source intake, post-spec issue enrichment). Coding agents author specs (with code tree visible) and implement (with code access). Two distinct roles, two distinct workspaces. Mixing them puts the spec review gate at the wrong moment (no codebase tree visible) and degrades review quality.
 
 ## Cleaning Up After Merge
 
@@ -198,9 +247,10 @@ The first line MUST be `# Task: <repo>#<num> — [...]`. If it shows the app rep
 WORKTREE="../<project-name>-123-short-description"
 VAULT_TICKET="<vault>/Tickets/<repo>-123"
 
-if [ -d "$WORKTREE/context" ] && [ -d "$VAULT_TICKET/context" ]; then
-  # Copy each file individually so we don't drop vault-only files (e.g., notes.md
-  # at the parent level, or files the worktree never touched).
+if [ -d "$WORKTREE/context" ]; then
+  # Vault context/ may not exist yet — orchestrator no longer creates it at intake
+  # (spec authorship moved into the worktree). Create it here, then copy.
+  mkdir -p "$VAULT_TICKET/context"
   cp -r "$WORKTREE/context/"* "$VAULT_TICKET/context/"
 fi
 
@@ -218,7 +268,7 @@ git worktree prune
 mv "<vault>/Tickets/<repo>-123" "<vault>/Archive/Tickets/<repo>-123"
 ```
 
-The archive holds the final snapshot — synced `progress-tracker.md` shows the unit-by-unit ship order, `architecture.md` reflects any invariants that shifted during build, `bugfix-spec.md` shows the actual root cause vs the original hypothesis. Read-only history for future tickets in the same area.
+The archive holds the final snapshot — synced `progress-tracker.md` shows the task-by-task ship order, `design.md` reflects any hard rules that shifted during build, `proposal.md` and `tasks.md` show the original product framing and decomposition. Read-only history for future tickets in the same area.
 
 ## Stack Workflow (optional — Graphite or git-native)
 
@@ -250,7 +300,7 @@ If you don't use Graphite, plain `git` works the same — just open separate PRs
 - Large feature that's easier to review in smaller pieces
 - Multiple modules change but in a clear dependency order
 - Total diff would exceed ~500 lines in a single PR
-- SDD build plan has ≥3 units with natural boundary splits
+- SDD `tasks.md` has ≥3 tasks with natural boundary splits
 
 **When to use a single PR:**
 - Self-contained change touching ≤ 3 files
@@ -260,7 +310,7 @@ If you don't use Graphite, plain `git` works the same — just open separate PRs
 
 **Stacking patterns:**
 ```
-# Pattern 1: Layer stack (most common — matches SDD build plan ordering)
+# Pattern 1: Layer stack (most common — matches SDD tasks.md ordering)
 main
  └─ 123-db-schema             # db changes
      └─ 123-api               # api changes
@@ -281,11 +331,11 @@ main
 
 ## GitHub Issue Lifecycle
 
-### Creation timing — SDD vs legacy
+### Creation timing
 
-Under SDD, **the GitHub Issue is materialized at Phase 5** (after the interview + context files), not at the start of the conversation. This is a change from any prior flow that created the ticket first.
+Under SDD, **the GitHub Issue is materialized at orchestrator Phase 2 as a stub** (title + 1-line context from sources), then **enriched at Phase 5b** after the coding agent's spec phase produces `proposal.md`. This is a change from earlier shapes that created the rich ticket up front OR after interview.
 
-Exception: if the user starts with `"let's work on <repo>#42"` (existing issue), Phase 5 is skipped — issue already exists.
+Exception: if the user starts with `"let's work on <repo>#42"` (existing issue), Phase 2 is skipped — issue already exists. Phase 5b still runs (or doesn't, depending on whether the user wants the body rewritten from the new spec).
 
 ### After Creating Any GitHub Issue
 **IMMEDIATELY** update `<active-work>`:
@@ -303,36 +353,43 @@ Update `<active-work>` to reflect the state change:
 
 ## GitHub Issue Template
 
-When SDD's Phase 5 creates a GitHub Issue, use this structure (also valid when creating issues manually outside SDD):
+When SDD's Phase 5b enriches the GitHub Issue body, build it directly from `proposal.md` sections. Each section maps:
 
-**Title**: `[Action verb] [what] [where]` (e.g., "Add calendar sync to dashboard")
+| GitHub field / section | Source from `proposal.md` |
+|---|---|
+| Title | Summary section, condensed to one line |
+| Context | Why section |
+| Scope | Scope section + Not in scope section |
+| Acceptance Criteria | Success criteria section (checklist preserved) |
+| Technical Notes | Optional — pull a high-level paragraph from `design.md` System boundaries / Storage model only if relevant for product/QA. Skip otherwise. |
 
-**Description**:
+**Body template**:
 ```
 ## Context
-[Why this work is needed — 2-3 sentences. Pull from project-overview.md Overview section.]
+[Why this work is needed — pulled from proposal.md Why section.]
 
 ## Scope
-- [Module / area]: [What changes]
-- [Module / area]: [What changes]
+- [What changes] (from proposal.md Scope)
+- Out of scope: [what we're NOT doing] (from proposal.md Not in scope)
 
 ## Acceptance Criteria
-- [ ] [Testable criterion]
-- [ ] [Testable criterion]
+- [ ] [Testable criterion from proposal.md Success criteria]
+- [ ] [Testable criterion from proposal.md Success criteria]
 
-## Technical Notes
-- [Architecture considerations — high level only, no file paths]
-- [Dependencies or prerequisites]
+## Technical Notes (optional)
+- [High-level architecture note from design.md if relevant for QA]
 - [Related issues: #<num>]
 ```
 
-> Per `.claude/rules/issue-tracking.md`: NEVER include code, file paths, or function names in GitHub Issue descriptions. Audience is the future-you (or a contributor) reviewing the issue cold. Technical notes stay high-level. Detailed technical content lives in `<vault>/Tickets/<repo>-<num>/context/` instead.
+For bugs, swap Context → Symptom + Impact (from proposal.md What + Why) and add Steps to Reproduce.
+
+> Per `<vault>/.claude/rules/issue-tracking.md`: NEVER include code, file paths, or function names in GitHub Issue bodies. Audience is future-you / a contributor reading the issue cold. Technical notes stay high-level. Detailed technical content lives in `<vault>/Tickets/<repo>-<num>/context/` (`proposal.md`, `design.md`, `tasks.md`, optional `sub-tasks/`) instead.
 
 ## Active Work Note Procedures
 
 `<active-work>` is a living dashboard of current work.
 
-**Dev Control is the SOLE updater of this note.** No other agent should modify it.
+**Dev Control is the SOLE updater of this note.** No other agent should modify it. Coding agents write to daily notes; Dev Control reads daily notes and updates Active Work.
 
 ### How to update Active Work:
 1. Read today's daily note `<daily-today>` (and yesterday's for spillover)
@@ -344,17 +401,15 @@ When SDD's Phase 5 creates a GitHub Issue, use this structure (also valid when c
    - New daily-note items not in Active Work → add to appropriate section
    - Active Work items with no worktree → check if completed or stale
    - Open GitHub Issues not tracked → add them
-   - **Drafts**: scan `<vault>/Tickets/draft-*/` folders → list under a "Drafts" sub-section if any exist
 6. Auto-cleanup stale worktrees (see below)
 7. Write updated note
 8. Clean "Recently Completed" items older than 3 days
-9. Move drafts older than 30 days to `<vault>/Archive/Tickets/draft-<slug>/`
 
 ### Auto-cleanup stale worktrees
 During every refresh, check each worktree (besides the main app repo) for staleness:
 
 **A worktree is stale if any of these are true:**
-- Its GitHub Issue (extracted from branch name) is closed
+- Its GitHub Issue (extracted from branch name like `42-foo`) is closed
 - Its work appears checked off / shipped in recent daily notes
 - Its branch has been merged into the default branch (`git branch --merged $(gh repo view --json defaultBranchRef -q .defaultBranchRef.name)`)
 
@@ -364,11 +419,12 @@ During every refresh, check each worktree (besides the main app repo) for stalen
 3. If real uncommitted source changes → skip removal, flag in Active Work as "has uncommitted changes"
 4. **Sync worktree `context/` → vault BEFORE removal** (same step as "Cleaning Up After Merge" #1):
    ```bash
-   if [ -d "<worktree-path>/context" ] && [ -d "<vault>/Tickets/<repo>-<num>/context" ]; then
+   if [ -d "<worktree-path>/context" ]; then
+     mkdir -p "<vault>/Tickets/<repo>-<num>/context"
      cp -r "<worktree-path>/context/"* "<vault>/Tickets/<repo>-<num>/context/"
    fi
    ```
-   This preserves `progress-tracker.md` (live unit checklist), updated `architecture.md`, and any other context file the coding agent edited during build.
+   This preserves `proposal.md` + `design.md` + `tasks.md` (the spec authored in Session 1), `progress-tracker.md` (the task ship order), and any context file the coding agent edited mid-build.
 5. Remove: `cd "<project-repo>" && git worktree remove --force <path> && git worktree prune`
 6. Delete local branch if merged: `git branch -d <branch-name>`
 7. Archive vault ticket folder: `mv "<vault>/Tickets/<repo>-<num>" "<vault>/Archive/Tickets/<repo>-<num>"` (now holds the synced final state)
@@ -391,5 +447,4 @@ When the user asks for status, gather from these sources:
 2. **Active worktrees**: `cd "<project-repo>" && git worktree list`
 3. **GitHub Issues**: `gh issue list --assignee @me --state open --json number,title,labels`
 4. **Daily note**: Read `<daily-today>` for what's been logged
-5. **Drafts**: scan `<vault>/Tickets/draft-*/` for in-flight SDD work without a GitHub Issue
-6. **Reconcile** any discrepancies and update Active Work if needed
+5. **Reconcile** any discrepancies and update Active Work if needed

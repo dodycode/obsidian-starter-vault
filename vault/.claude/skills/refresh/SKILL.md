@@ -59,7 +59,6 @@ Sync the Active Work note by reconciling all sources of truth.
    - Open GitHub Issues with `in-progress` label not in Active Work → add them
    - "Recently Completed" items older than 3 days → remove
    - Daily notes with frontmatter `status: complete` → trust as final for that date
-   - **Drafts**: scan `<vault>/Tickets/draft-*/` folders. List each under a "Drafts" sub-section (no GitHub Issue yet — in-flight SDD work). Drafts older than 30 days → move to `<vault>/Archive/Tickets/draft-<slug>/`
 
 6. **Auto-cleanup stale worktrees**:
    For each worktree (besides the main app repo), check if its work is done:
@@ -69,9 +68,10 @@ Sync the Active Work note by reconciling all sources of truth.
      a. Check for uncommitted changes: `git -C <worktree-path> status --short`
      b. If only untracked throwaway files (plan.md, notes.md, .claude/ artifacts, CLAUDE.local.md) → safe to force-remove
      c. If real uncommitted source changes exist → flag in Active Work as "has uncommitted changes" and skip removal
-     d. **Sync worktree `context/` → vault BEFORE removal** (preserves `progress-tracker.md` + any `architecture.md` / `ai-workflow-rules.md` updates the coding agent made during build):
+     d. **Sync worktree `context/` → vault BEFORE removal** (preserves `proposal.md` + `design.md` + `tasks.md` + `progress-tracker.md` + any `sub-tasks/` the coding agent generated during build):
         ```bash
-        if [ -d "<worktree-path>/context" ] && [ -d "<vault>/Tickets/<repo>-<num>/context" ]; then
+        if [ -d "<worktree-path>/context" ]; then
+          mkdir -p "<vault>/Tickets/<repo>-<num>/context"
           cp -r "<worktree-path>/context/"* "<vault>/Tickets/<repo>-<num>/context/"
         fi
         ```
@@ -83,7 +83,6 @@ Sync the Active Work note by reconciling all sources of truth.
 7. **Write updated Active Work note** preserving the dashboard format:
    - In Progress (priority-ordered)
    - Up Next
-   - Drafts (no GitHub Issue yet — in-flight SDD work in `Tickets/draft-<slug>/`)
    - Blocked (with reason and date)
    - Active Stacks (ASCII diagram if you use Graphite)
    - Recently Completed
